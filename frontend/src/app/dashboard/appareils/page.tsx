@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Activity, AlertTriangle, ShieldCheck, Zap, RotateCcw, ActivitySquare, AlertOctagon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/api';
 
 export default function AppareilsPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function AppareilsPage() {
 
   const fetchMachines = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/machines');
+      const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
       
       const mapped = data.map((m: any) => ({
@@ -90,7 +91,7 @@ export default function AppareilsPage() {
       }
       // On prend la première machine saine
       const target = appareils.find(a => a.status === 'actif') || appareils[0];
-      await fetch(`http://localhost:8000/api/machines/${target.id}/simulate`, { method: 'POST' });
+      await fetch(`${API_URL}/api/machines/${target.id}/simulate`, { method: 'POST' });
       fetchMachines();
     } catch (err) {
       console.error(err);
@@ -103,14 +104,14 @@ export default function AppareilsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px', color: 'var(--foreground)' }}>Équipements Enregistrés</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
             Surveillance en temps réel et diagnostics IA sur <strong>{appareils.length} équipements actifs</strong>.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button className="btn-secondary" style={{ width: 'auto', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', borderColor: 'var(--primary)', color: 'var(--foreground)' }} onClick={() => { fetchSites(); setIsMediaModalOpen(true); }}>
             📷 Analyser Flux Vidéo (IA)
           </button>
@@ -124,7 +125,7 @@ export default function AppareilsPage() {
       </div>
 
       {/* 4 KPIs Top Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+      <div className="grid-4-col" style={{ marginBottom: '32px' }}>
         <div className="glass-card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>PUISSANCE TOTALE</div>
@@ -189,7 +190,7 @@ export default function AppareilsPage() {
       </div>
 
       {/* Equipment Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+      <div className="grid-3-col">
         {filteredAppareils.map((app) => (
           <div key={app.id} className="glass-card" style={{ 
             padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column',
@@ -282,7 +283,7 @@ export default function AppareilsPage() {
               if(!name || !power || !quantity || !siteId) return;
 
               try {
-                await fetch('http://localhost:8000/api/machines', {
+                await fetch(`${API_URL}/api/machines`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ nom: name, power_kw: parseFloat(power), quantite: parseInt(quantity), site_id: siteId })
@@ -313,7 +314,7 @@ export default function AppareilsPage() {
                 )}
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="grid-2-equal">
                 <div className="input-group">
                   <label className="input-label">Puissance (kW)</label>
                   <input type="number" name="puissance" className="input-field" placeholder="Ex: 150" min="0.1" step="0.1" required />
@@ -354,7 +355,7 @@ export default function AppareilsPage() {
                 formData.append('file', mediaFile);
 
                 try {
-                  const res = await fetch(`http://localhost:8000/api/machines/${selectedMachineId}/analyze-media`, {
+                  const res = await fetch(`${API_URL}/api/machines/${selectedMachineId}/analyze-media`, {
                     method: 'POST',
                     body: formData
                   });

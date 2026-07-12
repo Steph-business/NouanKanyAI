@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Factory, MapPin, Activity, AlertCircle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/api';
 
 export default function SitesPage() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function SitesPage() {
     if (!newSiteName || !newSiteLocation || !user) return;
     
     try {
-      const res = await fetch('http://localhost:8000/api/sites', {
+      const res = await fetch(`${API_URL}/api/sites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,7 +93,7 @@ export default function SitesPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header-row" style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px', letterSpacing: '0.05em' }}>
             <span style={{ color: 'var(--primary)' }}>Infrastructure</span> / Gestion des Sites

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, Server, ShieldAlert, Cpu, Globe, Zap, Database, CheckCircle, Network, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { API_URL } from '@/lib/api';
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -17,7 +18,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchAdminMetrics = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/admin/metrics');
+        const res = await fetch(`${API_URL}/api/admin/metrics`);
         const json = await res.json();
         if (json && json.platform && !json.error) {
           setData(json);
@@ -113,7 +114,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+      <div className="grid-2-1">
 
         {/* Left Column: Users & Activities */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
