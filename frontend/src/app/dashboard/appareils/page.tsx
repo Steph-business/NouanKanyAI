@@ -74,6 +74,7 @@ export default function AppareilsPage() {
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [analyzingMedia, setAnalyzingMedia] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -243,15 +244,15 @@ export default function AppareilsPage() {
                   <AlertTriangle size={16} /> Lancer Diagnostic d'Urgence
                 </button>
               ) : app.status === 'hors ligne' ? (
-                <button className="btn-secondary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => showToast(`Réveil du système ${app.nom} en cours...`)} className="btn-secondary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <RotateCcw size={16} /> Réveiller le Système
                 </button>
               ) : (
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => router.push('/dashboard/predictions')} className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <Activity size={16} /> Diagnostics
                   </button>
-                  <button className="btn-secondary" style={{ width: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <button onClick={() => { fetchMachines(); showToast(`Actualisation des données de ${app.nom}...`); }} className="btn-secondary" style={{ width: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}>
                     <RotateCcw size={16} />
                   </button>
                 </div>
@@ -274,23 +275,26 @@ export default function AppareilsPage() {
             
             <form onSubmit={async (e) => {
               e.preventDefault();
+              if (isSubmitting) return;
               const formData = new FormData(e.currentTarget);
               const name = formData.get('nom') as string;
               const power = formData.get('puissance') as string;
-              const quantity = formData.get('quantite') as string;
               const siteId = formData.get('site_id') as string;
-              if(!name || !power || !quantity || !siteId) return;
+              if(!name || !power || !siteId) return;
 
+              setIsSubmitting(true);
               try {
                 await fetch('http://localhost:8000/api/machines', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ nom: name, power_kw: parseFloat(power), quantite: parseInt(quantity), site_id: siteId })
+                  body: JSON.stringify({ nom: name, power_kw: parseFloat(power), quantite: 1, site_id: siteId })
                 });
                 setIsModalOpen(false);
                 fetchMachines(); // Refresh immediately
               } catch (err) {
                 console.error("Erreur d'ajout", err);
+              } finally {
+                setIsSubmitting(false);
               }
             }}>
               <div className="input-group">
@@ -313,20 +317,16 @@ export default function AppareilsPage() {
                 )}
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="input-group">
-                  <label className="input-label">Puissance (kW)</label>
-                  <input type="number" name="puissance" className="input-field" placeholder="Ex: 150" min="0.1" step="0.1" required />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Quantité</label>
-                  <input type="number" name="quantite" className="input-field" defaultValue="1" min="1" required />
-                </div>
+              <div className="input-group">
+                <label className="input-label">Puissance (kW)</label>
+                <input type="number" name="puissance" className="input-field" placeholder="Ex: 150" min="0.1" step="0.1" required />
               </div>
               
               <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Annuler</button>
-                <button type="submit" className="btn-primary">Ajouter</button>
+                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Annuler</button>
+                <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                  {isSubmitting ? 'Ajout en cours...' : 'Ajouter'}
+                </button>
               </div>
             </form>
           </div>
