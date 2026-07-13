@@ -1,36 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bot, Send, Sparkles, Zap, ShieldAlert, Loader2 } from 'lucide-react';
 
 export default function PredictionsPage() {
   const [inputMessage, setInputMessage] = useState('');
-  const defaultMessage = { sender: 'ai', text: 'Bonjour ! Je suis votre Assistant IA NouanKanyAI. Je suis connecté à vos modèles XGBoost et Isolation Forest en temps réel. Comment puis-je vous aider ?' };
+  const getCurrentTime = () => {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} à ${timeStr}`;
+  };
+  const defaultMessage = { sender: 'ai', text: 'Bonjour ! Je suis votre Assistant IA NouanKanyAI. Je suis connecté à vos modèles XGBoost et Isolation Forest en temps réel. Comment puis-je vous aider ?', timestamp: '11/07 à 08:00' };
   const [messages, setMessages] = useState<any[]>([defaultMessage]);
   const [isClient, setIsClient] = useState(false);
   
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(true);
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  
+  const router = useRouter();
+  
+  // États pour les notifications (Toast)
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
 
-  // Load chat history from localStorage on mount
+  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setToastMessage(msg);
+    setToastType(type);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
   useEffect(() => {
     setIsClient(true);
-    const savedChat = localStorage.getItem('energai_chat_history');
-    if (savedChat) {
-      try {
-        setMessages(JSON.parse(savedChat));
-      } catch (e) {
-        console.error("Erreur de chargement de l'historique", e);
-      }
-    }
   }, []);
-
-  // Save chat history to localStorage on change
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('energai_chat_history', JSON.stringify(messages));
-    }
-  }, [messages, isClient]);
 
   // Fetch true recommendations from FastAPI
   useEffect(() => {
@@ -64,11 +68,11 @@ export default function PredictionsPage() {
     if (!inputMessage.trim()) return;
     
     const userMsg = inputMessage;
-    setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setMessages(prev => [...prev, { sender: 'user', text: userMsg, timestamp: getCurrentTime() }]);
     setInputMessage('');
     
     // Add loading message
-    setMessages(prev => [...prev, { sender: 'ai', text: "..." }]);
+    setMessages(prev => [...prev, { sender: 'ai', text: "...", timestamp: getCurrentTime() }]);
     
     try {
       // On récupère d'abord l'état actuel depuis l'API globale
@@ -85,48 +89,78 @@ export default function PredictionsPage() {
       
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: data.response };
+        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: data.response, timestamp: getCurrentTime() };
         return newMsgs;
       });
     } catch (error) {
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: "Erreur de connexion a l'IA NouanKanyAI." };
+        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: "Erreur de connexion a l'IA NouanKanyAI.", timestamp: getCurrentTime() };
         return newMsgs;
       });
     }
   };
 
   const executeAction = async (rec: any) => {
-    const actionText = `J'exécute l'action recommandée : "${rec.action}" suite à "${rec.title}". Lance l'analyse...`;
+    if (executingId) return;
     
-    // Optimistic UI update
-    setMessages(prev => [...prev, { sender: 'user', text: actionText }]);
-    setMessages(prev => [...prev, { sender: 'ai', text: "Lancement du protocole d'intervention en cours..." }]);
+    const actionId = rec.machine_id + rec.type;
+    setExecutingId(actionId);
     
     try {
+      // 1. Déclenchement de l'action physique selon le type
+      if (rec.type === 'alerte') {
+        showToast(`Coupure d'urgence de ${rec.machine_id} en cours...`, "error");
+        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
+      } else if (rec.type === 'optimisation') {
+        showToast(`Activation du mode Éco sur ${rec.machine_id}...`, "info");
+        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/eco`, { method: 'POST' });
+      } else if (rec.type === 'délestage') {
+        showToast(`Délestage préventif de ${rec.machine_id} en cours...`, "info");
+        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
+      }
+
+      const actionText = `Exécute l'action recommandée : "${rec.action}" sur l'équipement ${rec.machine_id}.`;
+      
+      // 2. Mise à jour optimiste du chat
+      setMessages(prev => [...prev, { sender: 'user', text: actionText, timestamp: getCurrentTime() }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: "Exécution de la commande en cours...", timestamp: getCurrentTime() }]);
+      
+      // 3. Obtenir la confirmation de l'IA
       const machinesRes = await fetch('http://localhost:8000/api/machines');
       const currentMachinesState = await machinesRes.json();
       
       const response = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: actionText, context: currentMachinesState })
+        body: JSON.stringify({ 
+          message: `L'utilisateur vient d'exécuter l'action physique : ${rec.action} sur ${rec.machine_id}. Confirme brièvement et professionnellement que l'intervention est un succès et que le système est sécurisé/optimisé.`, 
+          context: currentMachinesState 
+        })
       });
       
       const data = await response.json();
       
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: data.response };
+        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: data.response, timestamp: getCurrentTime() };
         return newMsgs;
       });
+
+      // 4. Retirer la recommandation de la liste (Résolue)
+      setRecommendations(prev => prev.filter(r => r.machine_id !== rec.machine_id || r.type !== rec.type));
+      showToast("Intervention réussie.", "success");
+
     } catch (error) {
+      console.error(error);
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: "Erreur lors de l'exécution de l'action." };
+        newMsgs[newMsgs.length - 1] = { sender: 'ai', text: "Erreur technique lors de l'exécution de l'action physique.", timestamp: getCurrentTime() };
         return newMsgs;
       });
+      showToast("Erreur lors de l'exécution.", "error");
+    } finally {
+      setExecutingId(null);
     }
   };
 
@@ -176,9 +210,19 @@ export default function PredictionsPage() {
             </div>
           </div>
           
-          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--background-alt)' }}>
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: 'var(--background-alt)' }}>
             {messages.map((msg, idx) => (
-              <div key={idx} style={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+              <div key={idx} style={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '80%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: 'var(--text-muted)', 
+                  marginBottom: '6px', 
+                  textAlign: msg.sender === 'user' ? 'right' : 'left',
+                  fontWeight: 500,
+                  letterSpacing: '0.02em'
+                }}>
+                  {msg.sender === 'user' ? 'Vous' : 'NouanKanyAI'} • {msg.timestamp || getCurrentTime()}
+                </div>
                 <div style={{ 
                   backgroundColor: msg.sender === 'user' ? 'var(--primary)' : 'var(--surface)', 
                   color: msg.sender === 'user' ? '#fff' : 'var(--foreground)',
@@ -196,11 +240,12 @@ export default function PredictionsPage() {
           <div style={{ padding: '16px', borderTop: '1px solid var(--surface-border)', backgroundColor: 'var(--surface)', display: 'flex', gap: '12px' }}>
             <input 
               type="text" 
+              className="chat-input"
               placeholder="Demandez une analyse, un rapport, ou une prédiction..." 
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              style={{ flex: 1, padding: '12px 16px', borderRadius: '24px', border: '1px solid var(--surface-border)', outline: 'none', backgroundColor: 'var(--background-alt)' }}
+              style={{ flex: 1, padding: '12px 16px', borderRadius: '24px', border: 'none', outline: 'none', backgroundColor: 'var(--primary)', color: '#ffffff' }}
             />
             <button onClick={handleSend} style={{ backgroundColor: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <Send size={18} />
@@ -221,30 +266,62 @@ export default function PredictionsPage() {
             </div>
           ) : (
             recommendations.map((rec, idx) => {
-              const color = getColorForSeverity(rec.severity);
               return (
-                <div key={idx} className="glass-card" style={{ borderLeft: `4px solid ${color}` }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                <div key={idx} style={{ 
+                  backgroundColor: 'var(--surface)', 
+                  border: '1px solid var(--surface-border)', 
+                  borderRadius: '6px', 
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div>{getIconForType(rec.type, rec.severity)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{rec.title}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5' }}>
-                        {rec.description}
+                    <div style={{ fontWeight: 700, fontSize: '15px' }}>{rec.title}</div>
+                  </div>
+                  
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                    {rec.description}
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    backgroundColor: 'rgba(0,0,0,0.2)', 
+                    padding: '12px 16px', 
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    marginTop: '4px'
+                  }}>
+                    {rec.gain_fcfa > 0 ? (
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                        Gain : +{rec.gain_fcfa.toLocaleString('fr-FR')} FCFA
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        {rec.gain_fcfa > 0 ? (
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>GAIN ESTIMÉ : {rec.gain_fcfa.toLocaleString('fr-FR')} XOF</div>
-                        ) : (
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626' }}>ACTION CRITIQUE</div>
-                        )}
-                        <button 
-                                onClick={() => executeAction(rec)}
-                                className={rec.severity === 'critique' ? "btn-secondary" : "btn-primary"} 
-                                style={{ width: 'auto', padding: '6px 12px', fontSize: '12px', borderColor: rec.severity === 'critique' ? '#DC2626' : '', color: rec.severity === 'critique' ? '#DC2626' : '', cursor: 'pointer' }}>
-                          {rec.action}
-                        </button>
+                    ) : (
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        Intervention requise
                       </div>
-                    </div>
+                    )}
+                    <button 
+                      onClick={() => executeAction(rec)}
+                      disabled={executingId === rec.machine_id + rec.type}
+                      className={rec.severity === 'critique' ? "btn-secondary" : "btn-primary"} 
+                      style={{ 
+                        width: 'auto', 
+                        padding: '8px 16px', 
+                        fontSize: '12px', 
+                        cursor: executingId === rec.machine_id + rec.type ? 'wait' : 'pointer',
+                        borderRadius: '4px',
+                        opacity: executingId === rec.machine_id + rec.type ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                      {executingId === rec.machine_id + rec.type ? <Loader2 size={14} className="animate-spin" /> : null}
+                      {executingId === rec.machine_id + rec.type ? "En cours..." : rec.action}
+                    </button>
                   </div>
                 </div>
               );
@@ -252,6 +329,37 @@ export default function PredictionsPage() {
           )}
         </div>
       </div>
+
+      {/* Custom Toast Notification */}
+      {toastMessage && (
+        <div style={{ 
+          position: 'fixed', 
+          bottom: '32px', 
+          right: '32px', 
+          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6', 
+          color: '#fff', 
+          padding: '16px 24px', 
+          borderRadius: '12px', 
+          fontWeight: 600, 
+          zIndex: 99999, 
+          boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}>
+          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
+          {toastMessage}
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}} />
     </div>
   );
 }

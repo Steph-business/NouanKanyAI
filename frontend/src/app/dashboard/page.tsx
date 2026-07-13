@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Zap, Target, Power, AlertTriangle, Bot } from 'lucide-react';
+import { ArrowUpRight, Zap, Target, Power, AlertTriangle, Bot, Leaf } from 'lucide-react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/lib/supabase';
 
@@ -37,6 +37,17 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [economiesMois, setEconomiesMois] = useState(0);
 
+  // États pour les notifications (Toast) et le chargement
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
+  const [loadingMachineId, setLoadingMachineId] = useState<string | null>(null);
+
+  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setToastMessage(msg);
+    setToastType(type);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -59,7 +70,7 @@ export default function DashboardPage() {
         setMachines(data);
         
         // Calculate total consumption dynamically
-        const total = data.reduce((acc: number, m: any) => acc + (m.status === 'actif' ? m.power_kw : 0), 0);
+        const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
         setTotalConso(total);
         
         // Generate realistic chart data from real machine power
@@ -93,8 +104,52 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const toggleAppareil = (machine_id: string) => {
-    console.log("Toggle", machine_id);
+  const toggleAppareil = async (machine_id: string, nom: string, current_status: string) => {
+    if (loadingMachineId) return; // Prevent double clicks
+    
+    setLoadingMachineId(machine_id);
+    const actionText = ['actif', 'eco'].includes(current_status) ? `Mise hors tension de ${nom}...` : `Allumage de ${nom}...`;
+    const actionType = ['actif', 'eco'].includes(current_status) ? 'info' : 'success';
+    
+    showToast(actionText, actionType);
+
+    try {
+      await fetch(`http://localhost:8000/api/machines/${machine_id}/toggle`, { method: 'POST' });
+      // Fetch machines again to update UI
+      const res = await fetch('http://localhost:8000/api/machines');
+      const data = await res.json();
+      setMachines(data);
+      const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
+      setTotalConso(total);
+      
+      showToast(['actif', 'eco'].includes(current_status) ? `${nom} est maintenant hors ligne.` : `${nom} est maintenant actif.`, 'success');
+    } catch (err) {
+      console.error("Erreur lors du basculement", err);
+      showToast("Erreur lors de la modification du statut.", 'error');
+    } finally {
+      setLoadingMachineId(null);
+    }
+  };
+
+  const toggleEco = async (machine_id: string, nom: string) => {
+    if (loadingMachineId) return;
+    setLoadingMachineId(machine_id);
+    showToast(`Activation du mode Éco sur ${nom}...`, 'info');
+    
+    try {
+      await fetch(`http://localhost:8000/api/machines/${machine_id}/eco`, { method: 'POST' });
+      const res = await fetch('http://localhost:8000/api/machines');
+      const data = await res.json();
+      setMachines(data);
+      const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
+      setTotalConso(total);
+      showToast(`Mode Éco activé pour ${nom} (-35% de conso).`, 'success');
+    } catch (err) {
+      console.error("Erreur lors du mode éco", err);
+      showToast("Erreur lors de l'activation du mode Éco.", 'error');
+    } finally {
+      setLoadingMachineId(null);
+    }
   };
 
   if (!user) return null;
@@ -218,7 +273,7 @@ export default function DashboardPage() {
                 <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip 
                   cursor={{fill: 'var(--surface-hover)'}}
-                  contentStyle={{ backgroundColor: 'var(--background-alt)', borderColor: 'var(--surface-border)', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}
+                  contentStyle={{ backgroundColor: 'var(--background-alt)', borderColor: 'var(--surface-border)', borderRadius: '8px' }}
                   itemStyle={{ color: 'var(--foreground)', fontSize: '13px' }}
                   labelStyle={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}
                 />
@@ -260,17 +315,40 @@ export default function DashboardPage() {
                   <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', color: 'var(--foreground)' }}>{appareil.nom}</div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appareil.power_kw} kW • {appareil.temperature_c.toFixed(1)}°C</div>
                 </div>
-                <div 
-                  onClick={() => router.push('/dashboard/appareils')}
-                  style={{ 
-                    cursor: 'pointer', padding: '8px', borderRadius: '50%', 
-                    backgroundColor: appareil.status === 'actif' ? 'var(--primary-light)' : 'rgba(239, 68, 68, 0.1)',
-                    color: appareil.status === 'actif' ? 'var(--primary)' : '#EF4444',
-                    border: appareil.status === 'actif' ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.2)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Power size={16} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div 
+                    onClick={() => toggleEco(appareil.machine_id, appareil.nom)}
+                    style={{ 
+                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer', 
+                      padding: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: appareil.status === 'eco' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                      color: appareil.status === 'eco' ? '#10b981' : 'var(--text-muted)',
+                      border: appareil.status === 'eco' ? '1px solid #10b981' : '1px solid var(--surface-border)',
+                      transition: 'all 0.2s',
+                      opacity: loadingMachineId === appareil.machine_id ? 0.5 : 1,
+                      transform: loadingMachineId === appareil.machine_id ? 'scale(0.95)' : 'scale(1)'
+                    }}
+                    title="Mode Éco (Réguler la consommation)"
+                  >
+                    <Leaf size={16} />
+                  </div>
+                  <div 
+                    onClick={() => toggleAppareil(appareil.machine_id, appareil.nom, appareil.status)}
+                    style={{ 
+                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer', 
+                      padding: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary-light)' : 'rgba(239, 68, 68, 0.1)',
+                      color: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary)' : '#EF4444',
+                      border: ['actif', 'eco'].includes(appareil.status) ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.2)',
+                      transition: 'all 0.2s',
+                      opacity: loadingMachineId === appareil.machine_id ? 0.5 : 1,
+                      transform: loadingMachineId === appareil.machine_id ? 'scale(0.95)' : 'scale(1)'
+                    }}
+                  >
+                    <Power size={16} className={loadingMachineId === appareil.machine_id ? "spin-animation" : ""} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -282,6 +360,44 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      {/* Custom Toast Notification pour le Dashboard */}
+      {toastMessage && (
+        <div style={{ 
+          position: 'fixed', 
+          bottom: '32px', 
+          right: '32px', 
+          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6', 
+          color: '#fff', 
+          padding: '16px 24px', 
+          borderRadius: '12px', 
+          fontWeight: 600, 
+          zIndex: 99999, 
+          boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}>
+          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
+          {toastMessage}
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spinPulse {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(180deg) scale(0.8); }
+          100% { transform: rotate(360deg) scale(1); }
+        }
+        .spin-animation {
+          animation: spinPulse 1s linear infinite;
+        }
+      `}} />
     </div>
   );
 }

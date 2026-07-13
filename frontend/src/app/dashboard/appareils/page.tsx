@@ -13,9 +13,11 @@ export default function AppareilsPage() {
   const [sites, setSites] = useState<any[]>([]);
   const [totalPower, setTotalPower] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     setToastMessage(msg);
+    setToastType(type);
     setTimeout(() => setToastMessage(''), 3500);
   };
 
@@ -86,7 +88,7 @@ export default function AppareilsPage() {
   const triggerFakeAlert = async () => {
     try {
       if (appareils.length === 0) {
-        showToast("Ajoutez d'abord une machine avant de simuler une alerte.");
+        showToast("Ajoutez d'abord une machine avant de simuler une alerte.", 'error');
         return;
       }
       // On prend la première machine saine
@@ -244,7 +246,7 @@ export default function AppareilsPage() {
                   <AlertTriangle size={16} /> Lancer Diagnostic d'Urgence
                 </button>
               ) : app.status === 'hors ligne' ? (
-                <button onClick={() => showToast(`Réveil du système ${app.nom} en cours...`)} className="btn-secondary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <button onClick={() => showToast(`Réveil du système ${app.nom} en cours...`, 'success')} className="btn-secondary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <RotateCcw size={16} /> Réveiller le Système
                 </button>
               ) : (
@@ -252,7 +254,7 @@ export default function AppareilsPage() {
                   <button onClick={() => router.push('/dashboard/predictions')} className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <Activity size={16} /> Diagnostics
                   </button>
-                  <button onClick={() => { fetchMachines(); showToast(`Actualisation des données de ${app.nom}...`); }} className="btn-secondary" style={{ width: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}>
+                  <button onClick={() => { fetchMachines(); showToast(`Actualisation des données de ${app.nom}...`, 'info'); }} className="btn-secondary" style={{ width: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}>
                     <RotateCcw size={16} />
                   </button>
                 </div>
@@ -265,7 +267,7 @@ export default function AppareilsPage() {
       {/* Modal d'ajout d'appareil */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-card" style={{ width: '400px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', padding: '24px', zIndex: 1001, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+          <div className="glass-card" style={{ width: '400px', backgroundColor: 'var(--surface)', border: '1px solid var(--surface-border)', padding: '24px', zIndex: 1001 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Ajouter un Équipement</h2>
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
@@ -336,7 +338,7 @@ export default function AppareilsPage() {
       {/* Modal d'analyse multimédia */}
       {isMediaModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-card" style={{ width: '450px', backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', padding: '24px', zIndex: 1001, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+          <div className="glass-card" style={{ width: '450px', backgroundColor: 'var(--surface)', border: '1px solid var(--surface-border)', padding: '24px', zIndex: 1001 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Détecteur de Menaces par Flux Média</h2>
               <button onClick={() => { setIsMediaModalOpen(false); setAnalysisResult(null); setMediaFile(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
@@ -363,7 +365,7 @@ export default function AppareilsPage() {
                   fetchMachines(); // Refresh lists
                 } catch (err) {
                   console.error(err);
-                  showToast("Erreur d'analyse du fichier.");
+                  showToast("Erreur d'analyse du fichier.", 'error');
                 } finally {
                   setAnalyzingMedia(false);
                 }
@@ -480,20 +482,20 @@ export default function AppareilsPage() {
           position: 'fixed', 
           bottom: '32px', 
           right: '32px', 
-          backgroundColor: '#ef4444', 
+          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6', 
           color: '#fff', 
           padding: '16px 24px', 
           borderRadius: '12px', 
           fontWeight: 600, 
           zIndex: 99999, 
-          boxShadow: '0 10px 30px rgba(239, 68, 68, 0.3)',
+          boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           border: '1px solid rgba(255, 255, 255, 0.1)',
           animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}>
-          <span style={{ fontSize: '18px' }}>⚠</span>
+          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
           {toastMessage}
         </div>
       )}

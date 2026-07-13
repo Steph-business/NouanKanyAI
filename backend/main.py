@@ -145,7 +145,7 @@ def get_facturation():
     # Simulation du calcul comme dans le frontend, mais côté serveur (connecté à la DB)
     total_power_kw = 0
     for m in machines_res.data:
-        if m.get("status") == "actif":
+        if m.get("status") in ["actif", "eco"]:
             total_power_kw += m.get("puissance_nominale_kw", 0)
             
     # 100 FCFA / kWh, 24h/jour, 30 jours
@@ -206,7 +206,7 @@ def get_admin_metrics():
         active_machines = 0
         total_power = 0
         for m in machines_data:
-            if m.get("status") == "actif":
+            if m.get("status") in ["actif", "eco"]:
                 active_machines += 1
                 total_power += float(m.get("puissance_nominale_kw", 0))
                 
@@ -410,6 +410,50 @@ def simulate_anomaly(machine_id: str):
     }).execute()
     
     return {"status": "success"}
+
+@app.post("/api/machines/{machine_id}/toggle")
+def toggle_machine_status(machine_id: str):
+    """Bascule le statut d'une machine entre 'actif' et 'hors ligne'."""
+    if not supabase: return {"error": "Supabase not connected"}
+    
+    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+    if not res.data:
+        return {"error": "Machine non trouvée"}
+        
+    mach = res.data[0]
+    mach_uuid = mach["id"]
+    current_status = mach["status"]
+    
+    new_status = "hors ligne" if current_status in ["actif", "eco"] else "actif"
+    
+    supabase.table("machines").update({"status": new_status}).eq("id", mach_uuid).execute()
+    return {"status": "success", "new_status": new_status}
+
+@app.post("/api/machines/{machine_id}/eco")
+def eco_machine_status(machine_id: str):
+    """Active le mode éco pour réduire la consommation sans éteindre la machine."""
+    if not supabase: return {"error": "Supabase not connected"}
+    
+    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+    if not res.data:
+        return {"error": "Machine non trouvée"}
+        
+    mach = res.data[0]
+    mach_uuid = mach["id"]
+    
+    supabase.table("machines").update({"status": "eco"}).eq("id", mach_uuid).execute()
+    
+    reduced_power = float(mach["puissance_nominale_kw"]) * 0.65 # Réduit de 35%
+    
+    supabase.table("sensor_metrics").insert({
+        "machine_id": mach_uuid,
+        "power_kw": reduced_power,
+        "temperature_c": 30.0,
+        "vibration_hz": 1.1,
+        "pressure_bar": 1.0
+    }).execute()
+    
+    return {"status": "success", "new_status": "eco"}
 
 @app.post("/api/predict")
 def predict(req: PredictionRequest):

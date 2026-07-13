@@ -77,6 +77,38 @@ Elle combine :
 
 ---
 
+## 🎬 Script de Démonstration (Guide pour Présentation Vidéo)
+
+Ce script est conçu pour toute personne réalisant une vidéo de démonstration ou un pitch de la plateforme, même sans connaissance technique préalable. Suivez ce guide pas-à-pas pour éblouir votre audience :
+
+### 1. Introduction (Page d'Accueil)
+- **Action :** Montrez la page d'accueil avec le carrousel 3D et les hologrammes.
+- **Discours :** *"Bienvenue sur NouanKanyAI. Notre plateforme intelligente transforme la gestion énergétique des industriels en Afrique. Avec un design premium et futuriste, nous offrons une expérience unique. Connectons-nous à l'espace industriel."*
+
+### 2. Le Tableau de Bord (Dashboard)
+- **Action :** Affichez le Dashboard. Pointez la Puissance Totale et les Économies.
+- **Discours :** *"Voici notre centre de contrôle. En un coup d'œil, le directeur voit la consommation de l'usine en temps réel et les économies générées. Le graphique central montre l'évolution dynamique de la consommation au fil de la journée."*
+
+### 3. Action Immédiate : Coupure & Mode Éco
+- **Action :** Dans la section "Appareils Énergivores", montrez les boutons d'action. Cliquez sur la **petite feuille (Mode Éco)**, puis sur le **bouton Power (ON/OFF)**.
+- **Discours :** *"Si une machine consomme trop, nous offrons deux solutions directes depuis ce tableau de bord :*
+  *   *La coupure totale : Je clique sur le bouton rouge/vert. L'application envoie un signal au relais intelligent de l'usine pour couper le courant de la machine.*
+  *   *La régulation (Mode Éco) : Si je ne veux pas stopper la production, je clique sur cette feuille. L'IA régule la puissance du moteur (-35% de conso) instantanément, regardez la belle notification de confirmation !"*
+
+### 4. L'Assistant IA Multimodal (Vision & Chat)
+- **Action :** Allez dans "Assistant IA". Posez une question au chatbot. Ensuite, uploadez une image d'équipement (ex: machine en feu).
+- **Discours :** *"NouanKanyAI est un véritable copilote. Le chatbot connaît l'état de l'usine en temps réel. Mieux encore : grâce à la vision par ordinateur, si un technicien envoie la photo d'un équipement fumant, l'IA l'analyse en 3 secondes, détecte le danger, et place l'usine en état d'alerte rouge automatiquement."*
+
+### 5. Facturation Automatisée (Gain-Share)
+- **Action :** Naviguez vers l'onglet "Facturation" et montrez la section Mobile Money.
+- **Discours :** *"Notre modèle est gagnant-gagnant : pas d'abonnement. Nous prenons 10% de commission sur les économies générées, le client garde 90%. Pour faciliter la vie des industriels, le paiement de cette commission est 100% automatisé via nos intégrations avec les opérateurs locaux (Wave, Orange, MTN, Moov)."*
+
+### 6. Console Administrateur (MLOps)
+- **Action :** Ouvrez l'onglet "Admin" pour montrer les jauges techniques.
+- **Discours :** *"Enfin, pour nos équipes techniques, cette console surveille la santé de nos modèles d'Intelligence Artificielle (XGBoost / Isolation Forest) pour garantir une précision optimale 24h/24 et 7j/7."*
+
+---
+
 ## 🏗️ Architecture Technique
 
 ```
