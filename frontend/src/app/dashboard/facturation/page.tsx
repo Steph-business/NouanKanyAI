@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, Cell, PieChart, Pie, ResponsiveContainer } from 'recharts';
 import { Download, CheckCircle, Search, FileText, Loader2, CreditCard } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 export default function FacturationPage() {
   const [grossSavings, setGrossSavings] = useState(0);
@@ -30,7 +31,7 @@ export default function FacturationPage() {
   useEffect(() => {
     const fetchFacturationData = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/facturation');
+        const res = await fetch(`${API_URL}/api/facturation`);
         const data = await res.json();
         
         if (data) {
@@ -131,7 +132,7 @@ export default function FacturationPage() {
           
           {/* Main Savings Card */}
           <div className="glass-card glow-card" style={{ padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>Économies Totales Vérifiées (Ce Mois)</div>
                 <div style={{ fontSize: '36px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'Outfit, sans-serif' }}>
@@ -155,8 +156,8 @@ export default function FacturationPage() {
               </ResponsiveContainer>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--surface-border)', paddingTop: '24px' }}>
-              <div style={{ display: 'flex', gap: '48px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid var(--surface-border)', paddingTop: '24px', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '48px', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Économies Brutes</div>
                   <div style={{ fontSize: '16px', fontWeight: 700 }}>{grossSavings.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA</div>
@@ -189,8 +190,8 @@ export default function FacturationPage() {
 
           {/* Audit Trail */}
           <div className="glass-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Journal d'Audit</h3>
                 <span style={{ fontSize: '10px', backgroundColor: 'var(--surface-hover)', padding: '2px 8px', borderRadius: '4px', color: 'var(--text-muted)' }}>0xDF_..A826 AFX</span>
               </div>
@@ -199,6 +200,7 @@ export default function FacturationPage() {
               </div>
             </div>
 
+            <div style={{ overflowX: 'auto' }}>
             <table className="audit-table">
               <thead>
                 <tr>
@@ -227,7 +229,8 @@ export default function FacturationPage() {
                 )}
               </tbody>
             </table>
-            
+            </div>
+
             <div style={{ textAlign: 'center', marginTop: '24px' }}>
               <a href="#" onClick={(e) => { e.preventDefault(); showNotification("Connexion à l'explorateur de noeuds en cours..."); }} style={{ color: 'var(--primary)', fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', textDecoration: 'none' }}>VOIR LE REGISTRE BLOCKCHAIN COMPLET</a>
             </div>

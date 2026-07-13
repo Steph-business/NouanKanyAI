@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bot, Send, Sparkles, Zap, ShieldAlert, Loader2 } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 export default function PredictionsPage() {
   const [inputMessage, setInputMessage] = useState('');
@@ -41,10 +42,10 @@ export default function PredictionsPage() {
     const fetchRecommendations = async () => {
       try {
         // On récupère d'abord l'état actuel depuis l'API globale
-        const machinesRes = await fetch('http://localhost:8000/api/machines');
+        const machinesRes = await fetch(`${API_URL}/api/machines`);
         const currentMachinesState = await machinesRes.json();
 
-        const response = await fetch('http://localhost:8000/api/recommend', {
+        const response = await fetch(`${API_URL}/api/recommend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(currentMachinesState)
@@ -76,10 +77,10 @@ export default function PredictionsPage() {
     
     try {
       // On récupère d'abord l'état actuel depuis l'API globale
-      const machinesRes = await fetch('http://localhost:8000/api/machines');
+      const machinesRes = await fetch(`${API_URL}/api/machines`);
       const currentMachinesState = await machinesRes.json();
       
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, context: currentMachinesState })
@@ -111,13 +112,13 @@ export default function PredictionsPage() {
       // 1. Déclenchement de l'action physique selon le type
       if (rec.type === 'alerte') {
         showToast(`Coupure d'urgence de ${rec.machine_id} en cours...`, "error");
-        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
+        await fetch(`${API_URL}/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
       } else if (rec.type === 'optimisation') {
         showToast(`Activation du mode Éco sur ${rec.machine_id}...`, "info");
-        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/eco`, { method: 'POST' });
+        await fetch(`${API_URL}/api/machines/${rec.machine_id}/eco`, { method: 'POST' });
       } else if (rec.type === 'délestage') {
         showToast(`Délestage préventif de ${rec.machine_id} en cours...`, "info");
-        await fetch(`http://localhost:8000/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
+        await fetch(`${API_URL}/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
       }
 
       const actionText = `Exécute l'action recommandée : "${rec.action}" sur l'équipement ${rec.machine_id}.`;
@@ -127,10 +128,10 @@ export default function PredictionsPage() {
       setMessages(prev => [...prev, { sender: 'ai', text: "Exécution de la commande en cours...", timestamp: getCurrentTime() }]);
       
       // 3. Obtenir la confirmation de l'IA
-      const machinesRes = await fetch('http://localhost:8000/api/machines');
+      const machinesRes = await fetch(`${API_URL}/api/machines`);
       const currentMachinesState = await machinesRes.json();
       
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -198,7 +199,7 @@ export default function PredictionsPage() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', height: '600px' }}>
+      <div className="grid-2-equal predictions-grid" style={{ height: '600px' }}>
         
         {/* Chat Interface */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
