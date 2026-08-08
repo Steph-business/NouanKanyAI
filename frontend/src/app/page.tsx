@@ -7,14 +7,14 @@ import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const router = useRouter();
-  
+
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  
+
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [typeCompte, setTypeCompte] = useState('Industriel');
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
@@ -26,6 +26,14 @@ export default function Home() {
 
   useEffect(() => {
     const checkSession = async () => {
+      if (!supabase) {
+        const mockUser = localStorage.getItem('mockUser');
+        if (mockUser) {
+          router.push('/dashboard');
+        }
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const mockUser = localStorage.getItem('mockUser');
       if (session || mockUser) {
@@ -47,7 +55,7 @@ export default function Home() {
       type_compte: typeCompte
     };
     localStorage.setItem('mockUser', JSON.stringify(mockUser));
-    
+
     showToast("Connexion réussie ! Redirection en cours...");
     setTimeout(() => {
       router.push('/dashboard');
@@ -59,28 +67,28 @@ export default function Home() {
       {/* Left Column - Value Prop */}
       <div style={{ flex: 1, padding: '60px 8%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '40px' }}>
-          <Image 
-            src="/NouankanyAI.png" 
-            alt="NouanKanyAI Logo" 
-            width={48} 
-            height={48} 
-            style={{ objectFit: 'contain' }} 
+          <Image
+            src="/NouankanyAI.png"
+            alt="NouanKanyAI Logo"
+            width={48}
+            height={48}
+            style={{ objectFit: 'contain' }}
             priority
           />
           <span style={{ fontSize: '28px', fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
             NouankanyAI
           </span>
         </div>
-        
+
         <h1 style={{ fontSize: '56px', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.03em' }}>
           L'intelligence au service de votre <span style={{ color: 'var(--primary)' }}>énergie</span>.
         </h1>
         <p style={{ fontSize: '18px', color: 'var(--text-subtle)', lineHeight: 1.6, marginBottom: '40px', maxWidth: '540px' }}>
-          Reprenez le contrôle de vos installations industrielles. 
-          Analysez vos données avec une précision inégalée, identifiez les gaspillages 
+          Reprenez le contrôle de vos installations industrielles.
+          Analysez vos données avec une précision inégalée, identifiez les gaspillages
           et laissez notre IA optimiser vos équipements en temps réel.
         </p>
-        
+
         <div style={{ display: 'flex', gap: '24px', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary)' }}></div>
@@ -103,8 +111,8 @@ export default function Home() {
           {authMode === 'login' ? 'Bon retour parmi nous' : 'Créer un espace industriel'}
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '32px' }}>
-          {authMode === 'login' 
-            ? 'Connectez-vous pour accéder à votre tableau de bord.' 
+          {authMode === 'login'
+            ? 'Connectez-vous pour accéder à votre tableau de bord.'
             : 'Rejoignez le réseau NouanKanyAI.'}
         </p>
 
@@ -112,9 +120,9 @@ export default function Home() {
           {authMode === 'register' && (
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-subtle)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nom complet</label>
-              <input 
-                type="text" 
-                placeholder="Ex: Entreprise SA" 
+              <input
+                type="text"
+                placeholder="Ex: Entreprise SA"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
                 style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--surface-border)', backgroundColor: 'var(--background)', color: 'var(--foreground)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }}
@@ -124,12 +132,12 @@ export default function Home() {
               />
             </div>
           )}
-          
+
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-subtle)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Adresse Email</label>
-            <input 
-              type="email" 
-              placeholder="vous@entreprise.com" 
+            <input
+              type="email"
+              placeholder="vous@entreprise.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--surface-border)', backgroundColor: 'var(--background)', color: 'var(--foreground)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }}
@@ -141,9 +149,9 @@ export default function Home() {
 
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-subtle)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mot de passe</label>
-            <input 
-              type="password" 
-              placeholder="••••••••" 
+            <input
+              type="password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--surface-border)', backgroundColor: 'var(--background)', color: 'var(--foreground)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }}
@@ -156,7 +164,7 @@ export default function Home() {
           {authMode === 'register' && (
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-subtle)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type de compte</label>
-              <select 
+              <select
                 value={typeCompte}
                 onChange={(e) => setTypeCompte(e.target.value)}
                 style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--surface-border)', backgroundColor: 'var(--background)', color: 'var(--foreground)', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
@@ -168,19 +176,19 @@ export default function Home() {
             </div>
           )}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             style={{ width: '100%', padding: '14px', backgroundColor: 'var(--primary)', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', marginTop: '12px', transition: 'background-color 0.2s', boxShadow: '0 4px 6px -1px var(--primary-dim)' }}
-            onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary-hover)' }}
-            onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = 'var(--primary)' }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--primary-hover)' }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--primary)' }}
           >
             {loading ? 'Connexion en cours...' : (authMode === 'login' ? 'Accéder au panneau de contrôle' : 'Créer mon espace')}
           </button>
         </form>
 
         <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          <button 
+          <button
             onClick={() => {
               setAuthMode(authMode === 'login' ? 'register' : 'login');
               setError('');
@@ -193,10 +201,10 @@ export default function Home() {
       </div>
 
       {toastMessage && (
-        <div style={{ 
-          position: 'fixed', bottom: '32px', right: '32px', 
-          backgroundColor: 'var(--primary)', color: '#fff', padding: '16px 24px', 
-          borderRadius: '12px', fontWeight: 600, zIndex: 99999, 
+        <div style={{
+          position: 'fixed', bottom: '32px', right: '32px',
+          backgroundColor: 'var(--primary)', color: '#fff', padding: '16px 24px',
+          borderRadius: '12px', fontWeight: 600, zIndex: 99999,
           boxShadow: '0 10px 30px var(--primary-dim)',
           display: 'flex', alignItems: 'center', gap: '12px',
           animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
@@ -205,7 +213,8 @@ export default function Home() {
           {toastMessage}
         </div>
       )}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }

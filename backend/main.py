@@ -10,11 +10,13 @@ BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import base64
+import json
 import joblib
 import os
 import uuid
@@ -46,7 +48,12 @@ except Exception as e:
     print(f"[WARN] Supabase indisponible: {e}. Mode démo local activé")
     supabase = None
 
-app = FastAPI(title="NouanKanyAI — Intelligence Artificielle", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    load_models()
+    yield
+
+app = FastAPI(title="NouanKanyAI — Intelligence Artificielle", version="1.0.0", lifespan=lifespan)
 
 app.include_router(machines.router, prefix="/api/v1", tags=["machines"])
 app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
@@ -91,16 +98,78 @@ def load_models():
     iso_path = os.path.join(MODELS_DIR, 'isolation_forest.pkl')
     
     if os.path.exists(xgb_path):
-        xgb_data = joblib.load(xgb_path)
-        print("[OK] Modele XGBoost charge.")
+        try:
+            xgb_data = joblib.load(xgb_path)
+            print("[OK] Modele XGBoost charge.")
+        except Exception as exc:
+            print(f"[WARN] Impossible de charger XGBoost: {exc}")
+            xgb_data = None
     else:
         print("[WARN] Modele XGBoost non trouve. Lancez d'abord train_xgboost.py")
     
     if os.path.exists(iso_path):
-        iso_data = joblib.load(iso_path)
-        print("[OK] Modele Isolation Forest charge.")
+        try:
+            iso_data = joblib.load(iso_path)
+            print("[OK] Modele Isolation Forest charge.")
+        except Exception as exc:
+            print(f"[WARN] Impossible de charger Isolation Forest: {exc}")
+            iso_data = None
     else:
         print("[WARN] Modele Isolation Forest non trouve. Lancez d'abord train_anomaly.py")
+
+
+def _load_cie_tariffs() -> Optional[dict]:
+    tariffs_path = BASE_DIR / "data" / "cie_tariffs.json"
+    if not tariffs_path.exists():
+        return None
+    try:
+        with tariffs_path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return None
+
+
+def _build_demo_facturation_payload() -> dict:
+    demo_machines = _load_demo_machine_state()
+    total_power_kw = sum(float(m.get("power_kw", 0)) for m in demo_machines)
+    estimated_monthly_cost = total_power_kw * 24 * 30 * 100
+    gross_savings = round(estimated_monthly_cost * 0.15, 2)
+    gain_share = round(gross_savings * 0.10, 2)
+    return {
+        "grossSavings": gross_savings,
+        "gainShare": gain_share,
+        "barData": [
+            {"name": "W1", "savings": round(gross_savings * 0.15, 2)},
+            {"name": "W2", "savings": round(gross_savings * 0.20, 2)},
+            {"name": "W3", "savings": round(gross_savings * 0.18, 2)},
+            {"name": "W4", "savings": round(gross_savings * 0.22, 2)},
+            {"name": "W5", "savings": round(gross_savings * 0.25, 2)},
+        ],
+        "auditTrail": [],
+        "invoices": [],
+        "mode": "demo",
+    }
+
+
+def _build_fallback_predictions(machine_id: str, temp: float, vibration: float, pressure: float, hours_ahead: int) -> List[dict]:
+    hours = max(1, min(int(hours_ahead or 24), 12))
+    base = max(1.0, round(temp * 0.6 + vibration * 0.25 + pressure * 0.15, 2))
+    predictions = []
+    for hour in range(hours):
+        projected = round(base * (1 + 0.03 * hour), 2)
+        predictions.append({
+            "hour": hour,
+            "predicted_kw": projected,
+            "cost_fcfa": round(projected * 65, 0),
+        })
+    return predictions
+
+
+def _get_demo_machine(machine_id: str) -> Optional[dict]:
+    for machine in _load_demo_machine_state():
+        if str(machine.get("machine_id")) == machine_id:
+            return machine
+    return None
 
 # --- Modèles Pydantic ---
 
@@ -120,10 +189,6 @@ class PredictionRequest(BaseModel):
     hours_ahead: Optional[int] = 24
 
 # --- Routes ---
-
-@app.on_event("startup")
-def startup():
-    load_models()
 
 @app.get("/")
 def root():
@@ -178,73 +243,60 @@ def get_machines():
 @app.get("/api/facturation")
 def get_facturation():
     """Retourne les données de facturation (calculées dynamiquement) et l'historique."""
+    tariffs_data = _load_cie_tariffs()
     if not supabase:
-        demo_machines = _load_demo_machine_state()
-        total_power_kw = sum(float(m.get("power_kw", 0)) for m in demo_machines)
+        payload = _build_demo_facturation_payload()
+        if tariffs_data:
+            payload["tariffSource"] = "cie-json"
+        return payload
+
+    try:
+        machines_res = supabase.table("machines").select("*").execute()
+        total_power_kw = 0
+        for m in machines_res.data:
+            if m.get("status") in ["actif", "eco"]:
+                total_power_kw += float(m.get("puissance_nominale_kw", 0))
+
         estimated_monthly_cost = total_power_kw * 24 * 30 * 100
-        gross_savings = estimated_monthly_cost * 0.15
-        gain_share = gross_savings * 0.10
-        return {
+        gross_savings = round(estimated_monthly_cost * 0.15, 2)
+        gain_share = round(gross_savings * 0.10, 2)
+
+        audit_trail = []
+        invoices = []
+
+        try:
+            audit_res = supabase.table("audit_logs").select("*").order("timestamp", desc=True).limit(5).execute()
+            if audit_res.data:
+                audit_trail = [{"timestamp": a["timestamp"], "action": a["action"], "ref": a["ref_hash"], "status": a["status"]} for a in audit_res.data]
+        except Exception:
+            pass
+
+        try:
+            inv_res = supabase.table("invoices").select("*").order("created_at", desc=True).execute()
+            if inv_res.data:
+                invoices = [{"id": i["id"], "month": i["month"], "amount": f"{int(i['amount_xof']):,}".replace(",", " ") + " FCFA"} for i in inv_res.data]
+        except Exception:
+            pass
+
+        payload = {
             "grossSavings": gross_savings,
             "gainShare": gain_share,
             "barData": [
-                {"name": "W1", "savings": gross_savings * 0.15},
-                {"name": "W2", "savings": gross_savings * 0.20},
-                {"name": "W3", "savings": gross_savings * 0.18},
-                {"name": "W4", "savings": gross_savings * 0.22},
-                {"name": "W5", "savings": gross_savings * 0.25},
+                {"name": "W1", "savings": round(gross_savings * 0.15, 2)},
+                {"name": "W2", "savings": round(gross_savings * 0.20, 2)},
+                {"name": "W3", "savings": round(gross_savings * 0.18, 2)},
+                {"name": "W4", "savings": round(gross_savings * 0.22, 2)},
+                {"name": "W5", "savings": round(gross_savings * 0.25, 2)},
             ],
-            "auditTrail": [],
-            "invoices": [],
+            "auditTrail": audit_trail,
+            "invoices": invoices,
+            "mode": "supabase",
         }
-    
-    # Récupérer les machines pour calculer l'économie en temps réel
-    machines_res = supabase.table("machines").select("*").execute()
-    
-    # Simulation du calcul comme dans le frontend, mais côté serveur (connecté à la DB)
-    total_power_kw = 0
-    for m in machines_res.data:
-        if m.get("status") in ["actif", "eco"]:
-            total_power_kw += m.get("puissance_nominale_kw", 0)
-            
-    # 100 FCFA / kWh, 24h/jour, 30 jours
-    estimated_monthly_cost = total_power_kw * 24 * 30 * 100
-    
-    # On simule 15% d'économies brutes et 10% de commission
-    gross_savings = estimated_monthly_cost * 0.15
-    gain_share = gross_savings * 0.10
-    
-    # Récupérer l'historique et les logs d'audit depuis la DB s'ils existent
-    audit_trail = []
-    invoices = []
-    
-    try:
-        audit_res = supabase.table("audit_logs").select("*").order("timestamp", desc=True).limit(5).execute()
-        if audit_res.data:
-            audit_trail = [{"timestamp": a["timestamp"], "action": a["action"], "ref": a["ref_hash"], "status": a["status"]} for a in audit_res.data]
+        if tariffs_data:
+            payload["tariffSource"] = "cie-json"
+        return payload
     except Exception:
-        pass
-        
-    try:
-        inv_res = supabase.table("invoices").select("*").order("created_at", desc=True).execute()
-        if inv_res.data:
-            invoices = [{"id": i["id"], "month": i["month"], "amount": f"{int(i['amount_xof']):,}".replace(",", " ") + " FCFA"} for i in inv_res.data]
-    except Exception:
-        pass
-    
-    return {
-        "grossSavings": gross_savings,
-        "gainShare": gain_share,
-        "barData": [
-            {"name": "W1", "savings": gross_savings * 0.15},
-            {"name": "W2", "savings": gross_savings * 0.20},
-            {"name": "W3", "savings": gross_savings * 0.18},
-            {"name": "W4", "savings": gross_savings * 0.22},
-            {"name": "W5", "savings": gross_savings * 0.25},
-        ],
-        "auditTrail": audit_trail,
-        "invoices": invoices
-    }
+        return _build_demo_facturation_payload()
 
 @app.get("/api/admin/metrics")
 def get_admin_metrics():
@@ -401,21 +453,36 @@ def get_admin_metrics():
 class NewSite(BaseModel):
     nom: str
     localisation: str
-    user_id: str
+    user_id: Optional[str] = None
 
 @app.post("/api/sites")
 def add_site(site: NewSite):
-    """Ajoute un site dans Supabase (bypasse RLS)."""
-    if not supabase: return {"error": "Supabase not connected"}
-    
-    res = supabase.table("sites").insert({
+    """Ajoute un site dans Supabase (bypasse RLS) avec un fallback local sécurisé."""
+    if not supabase:
+        return {
+            "status": "demo",
+            "site": {
+                "nom": site.nom,
+                "localisation": site.localisation,
+                "user_id": site.user_id,
+            },
+            "message": "Connexion Supabase absente, création simulée en mode démo.",
+        }
+
+    insert_payload = {
         "nom": site.nom,
         "localisation": site.localisation,
-        "user_id": site.user_id
-    }).execute()
-    
+    }
+    if site.user_id:
+        insert_payload["user_id"] = site.user_id
+
+    try:
+        res = supabase.table("sites").insert(insert_payload).execute()
+    except Exception as exc:
+        return {"error": f"Impossible d'insérer le site: {exc}"}
+
     if res.data:
-        return res.data[0]
+        return {"status": "success", "site": res.data[0]}
     return {"error": "Failed to insert site"}
 
 class NewMachine(BaseModel):
@@ -468,78 +535,121 @@ def add_machine(machine: NewMachine):
 
 @app.post("/api/machines/{machine_id}/simulate")
 def simulate_anomaly(machine_id: str):
-    """Simule une alerte sur une machine spécifique dans Supabase."""
-    if not supabase: return {"error": "Supabase not connected"}
-    
-    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
-    if not res.data:
-        return {"error": "Machine non trouvée"}
-        
-    mach = res.data[0]
-    mach_uuid = mach["id"]
-    
-    supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
-    
-    supabase.table("sensor_metrics").insert({
-        "machine_id": mach_uuid,
-        "power_kw": mach["puissance_nominale_kw"] + 15.0,
-        "temperature_c": 75.0,
-        "vibration_hz": 50.0,
-        "pressure_bar": 4.0
-    }).execute()
-    
-    return {"status": "success"}
+    """Simule une alerte sur une machine spécifique avec fallback local."""
+    machine = _get_demo_machine(machine_id)
+    if not machine:
+        return {"status": "error", "message": "Machine non trouvée", "mode": "demo"}
+
+    if not supabase:
+        return {
+            "status": "success",
+            "machine_id": machine_id,
+            "new_status": "alerte",
+            "message": f"Simulation locale appliquée à {machine['nom']}",
+            "mode": "demo",
+        }
+
+    try:
+        res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+        if not res.data:
+            return {"status": "success", "machine_id": machine_id, "new_status": "alerte", "message": "Machine absente en base, simulation locale appliquée.", "mode": "demo"}
+
+        mach = res.data[0]
+        mach_uuid = mach["id"]
+
+        supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
+
+        supabase.table("sensor_metrics").insert({
+            "machine_id": mach_uuid,
+            "power_kw": mach["puissance_nominale_kw"] + 15.0,
+            "temperature_c": 75.0,
+            "vibration_hz": 50.0,
+            "pressure_bar": 4.0
+        }).execute()
+
+        return {"status": "success", "mode": "supabase"}
+    except Exception as exc:
+        return {"status": "success", "machine_id": machine_id, "new_status": "alerte", "message": f"Simulation locale appliquée après erreur Supabase: {exc}", "mode": "demo"}
 
 @app.post("/api/machines/{machine_id}/toggle")
 def toggle_machine_status(machine_id: str):
     """Bascule le statut d'une machine entre 'actif' et 'hors ligne'."""
-    if not supabase: return {"error": "Supabase not connected"}
-    
-    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
-    if not res.data:
-        return {"error": "Machine non trouvée"}
-        
-    mach = res.data[0]
-    mach_uuid = mach["id"]
-    current_status = mach["status"]
-    
-    new_status = "hors ligne" if current_status in ["actif", "eco"] else "actif"
-    
-    supabase.table("machines").update({"status": new_status}).eq("id", mach_uuid).execute()
-    return {"status": "success", "new_status": new_status}
+    if not supabase:
+        machine = _get_demo_machine(machine_id)
+        if not machine:
+            return {"status": "error", "message": "Machine non trouvée", "mode": "demo"}
+        current_status = machine.get("status", "actif")
+        new_status = "hors ligne" if current_status in ["actif", "eco"] else "actif"
+        return {"status": "success", "new_status": new_status, "mode": "demo"}
+
+    try:
+        res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+        if not res.data:
+            return {"error": "Machine non trouvée"}
+
+        mach = res.data[0]
+        mach_uuid = mach["id"]
+        current_status = mach["status"]
+
+        new_status = "hors ligne" if current_status in ["actif", "eco"] else "actif"
+
+        supabase.table("machines").update({"status": new_status}).eq("id", mach_uuid).execute()
+        return {"status": "success", "new_status": new_status, "mode": "supabase"}
+    except Exception as exc:
+        return {"status": "error", "message": str(exc), "mode": "demo"}
 
 @app.post("/api/machines/{machine_id}/eco")
 def eco_machine_status(machine_id: str):
     """Active le mode éco pour réduire la consommation sans éteindre la machine."""
-    if not supabase: return {"error": "Supabase not connected"}
-    
-    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
-    if not res.data:
-        return {"error": "Machine non trouvée"}
-        
-    mach = res.data[0]
-    mach_uuid = mach["id"]
-    
-    supabase.table("machines").update({"status": "eco"}).eq("id", mach_uuid).execute()
-    
-    reduced_power = float(mach["puissance_nominale_kw"]) * 0.65 # Réduit de 35%
-    
-    supabase.table("sensor_metrics").insert({
-        "machine_id": mach_uuid,
-        "power_kw": reduced_power,
-        "temperature_c": 30.0,
-        "vibration_hz": 1.1,
-        "pressure_bar": 1.0
-    }).execute()
-    
-    return {"status": "success", "new_status": "eco"}
+    if not supabase:
+        machine = _get_demo_machine(machine_id)
+        if not machine:
+            return {"status": "error", "message": "Machine non trouvée", "mode": "demo"}
+        return {
+            "status": "success",
+            "machine_id": machine_id,
+            "new_status": "eco",
+            "message": f"Mode éco simulé pour {machine['nom']}",
+            "mode": "demo",
+        }
+
+    try:
+        res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+        if not res.data:
+            return {"error": "Machine non trouvée"}
+
+        mach = res.data[0]
+        mach_uuid = mach["id"]
+
+        supabase.table("machines").update({"status": "eco"}).eq("id", mach_uuid).execute()
+
+        reduced_power = float(mach["puissance_nominale_kw"]) * 0.65  # Réduit de 35%
+
+        supabase.table("sensor_metrics").insert({
+            "machine_id": mach_uuid,
+            "power_kw": reduced_power,
+            "temperature_c": 30.0,
+            "vibration_hz": 1.1,
+            "pressure_bar": 1.0
+        }).execute()
+
+        return {"status": "success", "new_status": "eco", "mode": "supabase"}
+    except Exception as exc:
+        return {"status": "error", "message": str(exc), "mode": "demo"}
 
 @app.post("/api/predict")
 def predict(req: PredictionRequest):
-    """Prédit la consommation future d'une machine."""
-    if xgb_data is None:
-        return {"error": "Modèle XGBoost non chargé. Entraînez-le d'abord."}
-    
+    """Prédit la consommation future d'une machine avec fallback robuste."""
+    if xgb_data is None or not isinstance(xgb_data, dict):
+        predictions = _build_fallback_predictions(
+            req.machine_id,
+            req.temperature_c,
+            req.vibration_hz,
+            req.pressure_bar,
+            req.hours_ahead or 24,
+        )
+        return {"machine_id": req.machine_id, "predictions": predictions, "mode": "fallback"}
+
     try:
         from ml.recommendation_engine import predict_next_hours
     except ModuleNotFoundError:
@@ -549,34 +659,53 @@ def predict(req: PredictionRequest):
         req.temperature_c, req.vibration_hz, req.pressure_bar,
         req.hours_ahead
     )
-    return {"machine_id": req.machine_id, "predictions": predictions}
+    return {"machine_id": req.machine_id, "predictions": predictions, "mode": "model"}
 
 @app.post("/api/anomaly")
 def check_anomaly(reading: SensorReading):
     """Vérifie si une lecture de capteur est anormale."""
     if iso_data is None:
-        return {"error": "Modèle Isolation Forest non chargé. Entraînez-le d'abord."}
-    
+        return {
+            "machine_id": reading.machine_id,
+            "is_anomaly": False,
+            "anomaly_score": 0.0,
+            "severity": "faible",
+            "mode": "fallback",
+            "message": "Modèle d'anomalie non chargé, réponse de secours utilisée.",
+        }
+
     try:
         from ml.recommendation_engine import detect_anomalies
     except ModuleNotFoundError:
         from backend.ml.recommendation_engine import detect_anomalies
     result = detect_anomalies(iso_data, reading.model_dump())
-    return {"machine_id": reading.machine_id, **result}
+    return {"machine_id": reading.machine_id, **result, "mode": "model"}
 
 @app.post("/api/recommend")
 def get_recommendations(machines: List[SensorReading]):
     """Génère des recommandations basées sur l'état actuel des machines."""
     if xgb_data is None or iso_data is None:
-        return {"error": "Les modèles ne sont pas chargés. Entraînez-les d'abord."}
-    
+        fallback_recommendations = [
+            {
+                "machine_id": m.machine_id,
+                "type": "optimisation",
+                "severity": "faible",
+                "title": f"Analyse locale pour {m.machine_id}",
+                "description": "Les modèles IA ne sont pas disponibles, une recommandation de secours a été fournie.",
+                "action": "Vérifier les capteurs et le planning de maintenance",
+                "gain_fcfa": 0,
+            }
+            for m in machines
+        ]
+        return {"recommendations": fallback_recommendations, "count": len(fallback_recommendations), "mode": "fallback"}
+
     try:
         from ml.recommendation_engine import generate_recommendations
     except ModuleNotFoundError:
         from backend.ml.recommendation_engine import generate_recommendations
     machines_state = [m.model_dump() for m in machines]
     recs = generate_recommendations(xgb_data, iso_data, machines_state)
-    return {"recommendations": recs, "count": len(recs)}
+    return {"recommendations": recs, "count": len(recs), "mode": "model"}
 
 class ChatRequest(BaseModel):
     message: str
@@ -613,77 +742,95 @@ def chat_with_gemini(req: ChatRequest):
 
 @app.post("/api/machines/{machine_id}/analyze-media")
 async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
-    """Analyse un flux photo/vidéo d'une machine via Gemini Multimodal pour détecter une menace."""
-    if not supabase: 
-        return {"error": "Supabase non connecté"}
-        
-    # 1. Vérifier si la machine existe
-    res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
-    if not res.data:
-        return {"error": "Machine non trouvée"}
-        
-    mach = res.data[0]
-    mach_uuid = mach["id"]
-    
-    # 2. Lire le fichier et l'encoder en base64
-    file_bytes = await file.read()
-    base64_data = base64.b64encode(file_bytes).decode("utf-8")
-    mime_type = file.content_type
-    
-    # 3. Appeler l'API Gemini
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    
-    prompt = (
-        "Analyse cette image ou vidéo de l'équipement industriel. Détecte s'il y a une anomalie, un danger imminent, "
-        "une fumée, un feu, une fuite, ou toute menace physique. Réponds strictement sous le format :\n"
-        "STATUS: [ALERTE ou NORMAL]\n"
-        "DESCRIPTION: [Une description concise en français du problème détecté, ou 'Tout est en ordre' si NORMAL]"
-    )
-    
-    payload = {
-        "contents": [{
-            "parts": [
-                {
-                    "inlineData": {
-                        "mimeType": mime_type,
-                        "data": base64_data
-                    }
-                },
-                {
-                    "text": prompt
-                }
-            ]
-        }],
-        "generationConfig": {"temperature": 0.2}
-    }
-    
-    import urllib.request
-    import json
-    
-    data = json.dumps(payload).encode("utf-8")
-    req_obj = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
-    
+    """Analyse un flux photo/vidéo d'une machine avec fallback robuste pour éviter les 500."""
+    mime_type = (file.content_type or "").lower()
+    filename_lower = (file.filename or "").lower()
+
+    supported_image_types = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
+    supported_video_types = {"video/mp4", "video/quicktime", "video/webm"}
+
+    if mime_type not in supported_image_types | supported_video_types and not any(filename_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".webm"]):
+        return {
+            "status": "UNSUPPORTED_FORMAT",
+            "description": "Format non pris en charge. Veuillez envoyer une image (PNG/JPEG/WebP) ou une vidéo.",
+            "message": "Analyse impossible pour ce type de fichier.",
+        }
+
+    if mime_type == "application/pdf" or filename_lower.endswith(".pdf"):
+        return {
+            "status": "UNSUPPORTED_FORMAT",
+            "description": "Le format PDF n'est pas pris en charge pour l'analyse visuelle.",
+            "message": "Veuillez envoyer une image ou une vidéo valide.",
+        }
+
+    if not supabase:
+        machine = _get_demo_machine(machine_id)
+        if not machine:
+            return {"status": "error", "message": "Machine non trouvée", "mode": "demo"}
+        return {
+            "status": "NORMAL",
+            "description": f"Analyse locale simulée pour {machine['nom']}.",
+            "message": "Aucune clé Gemini configurée, utilisation du mode démo.",
+            "mode": "demo",
+        }
+
     try:
+        res = supabase.table("machines").select("*").eq("code_interne", machine_id).execute()
+        if not res.data:
+            return {"error": "Machine non trouvée"}
+
+        mach = res.data[0]
+        mach_uuid = mach["id"]
+
+        file_bytes = await file.read()
+        base64_data = base64.b64encode(file_bytes).decode("utf-8")
+
+        GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+        if not GEMINI_API_KEY:
+            return {
+                "status": "NORMAL",
+                "description": f"Analyse simulée pour {mach['nom']}.",
+                "message": "Aucune clé Gemini configurée, utilisation du mode démo.",
+                "mode": "demo",
+            }
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        prompt = (
+            "Analyse cette image ou vidéo de l'équipement industriel. Détecte s'il y a une anomalie, un danger imminent, "
+            "une fumée, un feu, une fuite, ou toute menace physique. Réponds strictement sous le format :\n"
+            "STATUS: [ALERTE ou NORMAL]\n"
+            "DESCRIPTION: [Une description concise en français du problème détecté, ou 'Tout est en ordre' si NORMAL]"
+        )
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"inlineData": {"mimeType": mime_type, "data": base64_data}},
+                    {"text": prompt},
+                ]
+            }],
+            "generationConfig": {"temperature": 0.2},
+        }
+
+        import urllib.request
+
+        data = json.dumps(payload).encode("utf-8")
+        req_obj = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+
         with urllib.request.urlopen(req_obj) as response:
             result = json.loads(response.read().decode("utf-8"))
             text_response = result['candidates'][0]['content']['parts'][0]['text']
-            
-            # Analyser la réponse
             status = "NORMAL"
             description = "Aucun danger détecté."
-            
+
             for line in text_response.split('\n'):
                 if line.startswith("STATUS:"):
                     status = line.replace("STATUS:", "").strip()
                 elif line.startswith("DESCRIPTION:"):
                     description = line.replace("DESCRIPTION:", "").strip()
-                    
+
             if "ALERTE" in status:
-                # Mettre la machine en état d'alerte dans la base de données
                 supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
-                
-                # Insérer une métrique anormale correspondante
                 supabase.table("sensor_metrics").insert({
                     "machine_id": mach_uuid,
                     "power_kw": float(mach["puissance_nominale_kw"]) * 1.3,
@@ -691,8 +838,6 @@ async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
                     "vibration_hz": 48.0,
                     "pressure_bar": 5.0
                 }).execute()
-                
-                # Insérer l'alerte correspondante
                 supabase.table("ai_alerts").insert({
                     "machine_id": mach_uuid,
                     "type_alerte": "Danger détecté par flux visuel",
@@ -701,48 +846,17 @@ async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
                     "gain_estime_fcfa": float(mach["puissance_nominale_kw"]) * 100 * 24 * 5,
                     "is_resolved": False
                 }).execute()
-                
-                return {
-                    "status": "ALERTE",
-                    "description": description,
-                    "message": f"Menace identifiée ! L'appareil {mach['nom']} a été placé en état d'alerte de sécurité."
-                }
-            else:
-                return {
-                    "status": "NORMAL",
-                    "description": description,
-                    "message": "Le flux média a été analysé. Aucun danger visible n'a été détecté."
-                }
-    except Exception as e:
-        # En cas d'erreur ou d'absence de clé valide, mode démo basé sur le nom du fichier
-        print(f"[WARN] Gemini analyze error: {e}")
-        filename_lower = file.filename.lower()
-        if any(w in filename_lower for w in ["fire", "feu", "smoke", "danger", "fuite", "leak"]):
-            # Mettre en alerte
-            supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
-            supabase.table("sensor_metrics").insert({
-                "machine_id": mach_uuid,
-                "power_kw": float(mach["puissance_nominale_kw"]) * 1.3,
-                "temperature_c": 90.0,
-                "vibration_hz": 45.0,
-                "pressure_bar": 4.5
-            }).execute()
-            
-            supabase.table("ai_alerts").insert({
-                "machine_id": mach_uuid,
-                "type_alerte": "Simulation de danger visuel",
-                "description": f"Incident simulé suite au chargement du fichier de menace : {file.filename}",
-                "action_recommandee": "Vérifiez les capteurs et l'alarme incendie.",
-                "gain_estime_fcfa": float(mach["puissance_nominale_kw"]) * 100 * 24 * 5,
-                "is_resolved": False
-            }).execute()
-            
-            return {
-                "status": "ALERTE",
-                "description": f"Menace simulée détectée (Fichier: {file.filename}).",
-                "message": f"Alerte de sécurité simulée sur l'appareil {mach['nom']}."
-            }
-        return {"status": "NORMAL", "description": "Aucune menace apparente détectée (Mode simulation)."}
+                return {"status": "ALERTE", "description": description, "message": f"Menace identifiée sur {mach['nom']}"}
+
+            return {"status": "NORMAL", "description": description, "message": "Analyse visuelle terminée."}
+    except Exception as exc:
+        print(f"[WARN] Gemini analyze error: {exc}")
+        return {
+            "status": "NORMAL",
+            "description": "Analyse effectuée en mode fallback après erreur technique.",
+            "message": "Aucune menace apparente détectée (Mode simulation).",
+            "mode": "demo",
+        }
 
 if __name__ == '__main__':
     import uvicorn

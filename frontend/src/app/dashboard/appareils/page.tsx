@@ -24,6 +24,10 @@ export default function AppareilsPage() {
 
   const fetchSites = async () => {
     try {
+      if (!supabase) {
+        setSites([]);
+        return;
+      }
       const { data } = await supabase.from('sites').select('*');
       if (data) setSites(data);
     } catch (e) {
@@ -48,7 +52,7 @@ export default function AppareilsPage() {
     try {
       const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
-      
+
       const mapped = data.map((m: any) => ({
         id: m.machine_id,
         nom: m.nom,
@@ -57,18 +61,18 @@ export default function AppareilsPage() {
         status: m.status,
         power: m.status === 'actif' ? `${m.power_kw} kW` : 'N/A',
         power_raw: m.power_kw,
-        metric1Label: 'Température', 
-        metric1Value: `${m.temperature_c.toFixed(1)}°C`, 
+        metric1Label: 'Température',
+        metric1Value: `${m.temperature_c.toFixed(1)}°C`,
         metric1Color: m.temperature_c > 60 ? '#DC2626' : 'var(--foreground)',
-        metric2Label: 'Vibrations', 
-        metric2Value: `${m.vibration_hz.toFixed(1)} Hz`, 
-        metric2Progress: m.vibration_hz > 20 ? 100 : (m.vibration_hz / 20) * 100, 
+        metric2Label: 'Vibrations',
+        metric2Value: `${m.vibration_hz.toFixed(1)} Hz`,
+        metric2Progress: m.vibration_hz > 20 ? 100 : (m.vibration_hz / 20) * 100,
         metric2Color: m.vibration_hz > 20 ? '#DC2626' : 'var(--primary)',
         alertType: m.status === 'alerte' ? 'Intervention Requise' : '',
         icon: m.status === 'alerte' ? <AlertOctagon size={24} color="#DC2626" /> : <ActivitySquare size={24} color="var(--primary)" />
       }));
       setAppareils(mapped);
-      
+
       const total = mapped.reduce((acc: number, curr: any) => acc + (curr.status === 'actif' ? curr.power_raw : 0), 0);
       setTotalPower(total);
     } catch (err) {
@@ -101,7 +105,7 @@ export default function AppareilsPage() {
     }
   };
 
-  const filteredAppareils = filterSiteId 
+  const filteredAppareils = filterSiteId
     ? appareils.filter(app => app.site_id === filterSiteId)
     : appareils;
 
@@ -166,16 +170,16 @@ export default function AppareilsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', backgroundColor: 'rgba(255,255,255,0.01)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--surface-border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Filtrer par Site :</span>
-          <select 
-            value={filterSiteId} 
+          <select
+            value={filterSiteId}
             onChange={(e) => setFilterSiteId(e.target.value)}
-            style={{ 
-              backgroundColor: '#1e293b', 
-              border: '1px solid rgba(255,255,255,0.1)', 
-              color: '#fff', 
-              borderRadius: '8px', 
-              padding: '6px 16px', 
-              fontSize: '13px', 
+            style={{
+              backgroundColor: '#1e293b',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#fff',
+              borderRadius: '8px',
+              padding: '6px 16px',
+              fontSize: '13px',
               fontWeight: 600,
               cursor: 'pointer',
               outline: 'none'
@@ -195,7 +199,7 @@ export default function AppareilsPage() {
       {/* Equipment Cards */}
       <div className="grid-3-col">
         {filteredAppareils.map((app) => (
-          <div key={app.id} className="glass-card" style={{ 
+          <div key={app.id} className="glass-card" style={{
             padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column',
             borderTop: `4px solid ${app.status === 'actif' ? 'var(--primary)' : app.status === 'alerte' ? 'var(--danger)' : 'var(--surface-border)'}`,
             backgroundColor: app.status === 'alerte' ? 'rgba(239, 68, 68, 0.05)' : app.status === 'hors ligne' ? 'rgba(255, 255, 255, 0.01)' : 'transparent',
@@ -228,7 +232,7 @@ export default function AppareilsPage() {
                     {app.status === 'alerte' ? app.alertType : app.status === 'hors ligne' ? app.offlineStatus : app.metric1Value}
                   </span>
                 </div>
-                
+
                 <div style={{ marginTop: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px', fontWeight: 600, color: 'var(--text-muted)' }}>
                     <span>{app.metric2Label}</span>
@@ -275,7 +279,7 @@ export default function AppareilsPage() {
                 ✖
               </button>
             </div>
-            
+
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (isSubmitting) return;
@@ -283,7 +287,7 @@ export default function AppareilsPage() {
               const name = formData.get('nom') as string;
               const power = formData.get('puissance') as string;
               const siteId = formData.get('site_id') as string;
-              if(!name || !power || !siteId) return;
+              if (!name || !power || !siteId) return;
 
               setIsSubmitting(true);
               try {
@@ -319,7 +323,7 @@ export default function AppareilsPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="grid-2-equal">
                 <div className="input-group">
                   <label className="input-label">Puissance (kW)</label>
@@ -330,7 +334,7 @@ export default function AppareilsPage() {
                   <input type="number" name="quantite" className="input-field" defaultValue="1" min="1" required />
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
                 <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Annuler</button>
                 <button type="submit" className="btn-primary" disabled={isSubmitting}>
@@ -379,11 +383,11 @@ export default function AppareilsPage() {
               }}>
                 <div className="input-group">
                   <label className="input-label">Sélectionner l'Équipement ciblé</label>
-                  <select 
-                    value={selectedMachineId} 
-                    onChange={(e) => setSelectedMachineId(e.target.value)} 
-                    className="input-field" 
-                    required 
+                  <select
+                    value={selectedMachineId}
+                    onChange={(e) => setSelectedMachineId(e.target.value)}
+                    className="input-field"
+                    required
                     style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '12px' }}
                   >
                     <option value="">-- Choisir un équipement --</option>
@@ -395,13 +399,13 @@ export default function AppareilsPage() {
 
                 <div className="input-group" style={{ marginTop: '20px' }}>
                   <label className="input-label">Sélectionner un fichier (Photo ou Vidéo de menace)</label>
-                  <input 
-                    type="file" 
-                    accept="image/*,video/*" 
-                    onChange={(e) => setMediaFile(e.target.files ? e.target.files[0] : null)} 
-                    className="input-field" 
-                    required 
-                    style={{ padding: '8px' }} 
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={(e) => setMediaFile(e.target.files ? e.target.files[0] : null)}
+                    className="input-field"
+                    required
+                    style={{ padding: '8px' }}
                   />
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                     Tip : Nommez votre fichier "fire.png" ou "fuite.mp4" pour tester la simulation si la clé Gemini n'est pas configurée.
@@ -413,20 +417,20 @@ export default function AppareilsPage() {
                   <div style={{ marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>Aperçu du média :</div>
                     {mediaFile.type.startsWith('image/') ? (
-                      <img 
-                        src={URL.createObjectURL(mediaFile)} 
-                        alt="Preview" 
-                        style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', borderRadius: '4px' }} 
+                      <img
+                        src={URL.createObjectURL(mediaFile)}
+                        alt="Preview"
+                        style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', borderRadius: '4px' }}
                       />
                     ) : (
-                      <video 
-                        src={URL.createObjectURL(mediaFile)} 
-                        controls 
-                        style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '4px' }} 
+                      <video
+                        src={URL.createObjectURL(mediaFile)}
+                        controls
+                        style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '4px' }}
                       />
                     )}
                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginTop: '8px', wordBreak: 'break-all' }}>
-                      {mediaFile.name} ({ (mediaFile.size / (1024 * 1024)).toFixed(2) } MB)
+                      {mediaFile.name} ({(mediaFile.size / (1024 * 1024)).toFixed(2)} MB)
                     </div>
                   </div>
                 )}
@@ -453,9 +457,9 @@ export default function AppareilsPage() {
 
             {analysisResult && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '10px' }}>
-                <div style={{ 
-                  padding: '20px', 
-                  borderRadius: '12px', 
+                <div style={{
+                  padding: '20px',
+                  borderRadius: '12px',
                   backgroundColor: analysisResult.status === 'ALERTE' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                   border: `1px solid ${analysisResult.status === 'ALERTE' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
                   display: 'flex',
@@ -485,16 +489,16 @@ export default function AppareilsPage() {
 
       {/* Beautiful Toast Notification */}
       {toastMessage && (
-        <div style={{ 
-          position: 'fixed', 
-          bottom: '32px', 
-          right: '32px', 
-          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6', 
-          color: '#fff', 
-          padding: '16px 24px', 
-          borderRadius: '12px', 
-          fontWeight: 600, 
-          zIndex: 99999, 
+        <div style={{
+          position: 'fixed',
+          bottom: '32px',
+          right: '32px',
+          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6',
+          color: '#fff',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontWeight: 600,
+          zIndex: 99999,
           boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
           display: 'flex',
           alignItems: 'center',
@@ -507,7 +511,8 @@ export default function AppareilsPage() {
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }

@@ -19,15 +19,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   const handleLogout = async () => {
+    if (!supabase) {
+      router.push('/');
+      return;
+    }
+
     await supabase.auth.signOut();
     router.push('/');
   };
 
   useEffect(() => {
     const checkUser = async () => {
+      if (!supabase) {
+        const mockUser = localStorage.getItem('mockUser');
+        if (mockUser) {
+          setUser(JSON.parse(mockUser));
+        } else {
+          router.push('/');
+        }
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const mockUser = localStorage.getItem('mockUser');
-      
+
       if (session && session.user) {
         setUser({
           nom: session.user.user_metadata?.nom || session.user.email,
@@ -46,12 +61,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   const navItems = [
-    { href: '/dashboard',             label: 'Tableau de Bord', icon: LayoutDashboard, exact: true },
-    { href: '/dashboard/sites',        label: 'Sites',           icon: Factory },
-    { href: '/dashboard/appareils',    label: 'Appareils',       icon: Plug },
-    { href: '/dashboard/predictions',  label: 'Assistant IA',    icon: Bot },
-    { href: '/dashboard/facturation',  label: 'Facturation',     icon: Receipt },
-    { href: '/dashboard/admin',        label: 'Admin',           icon: Settings },
+    { href: '/dashboard', label: 'Tableau de Bord', icon: LayoutDashboard, exact: true },
+    { href: '/dashboard/sites', label: 'Sites', icon: Factory },
+    { href: '/dashboard/appareils', label: 'Appareils', icon: Plug },
+    { href: '/dashboard/predictions', label: 'Assistant IA', icon: Bot },
+    { href: '/dashboard/facturation', label: 'Facturation', icon: Receipt },
+    { href: '/dashboard/admin', label: 'Admin', icon: Settings },
   ];
 
   return (
@@ -66,12 +81,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div style={{ padding: '0 20px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Image 
-              src="/NouankanyAI.png" 
-              alt="NouanKanyAI Logo" 
-              width={44} 
-              height={44} 
-              style={{ objectFit: 'contain' }} 
+            <Image
+              src="/NouankanyAI.png"
+              alt="NouanKanyAI Logo"
+              width={44}
+              height={44}
+              style={{ objectFit: 'contain' }}
             />
             <div>
               <div style={{ color: '#ffffff', fontSize: '16px', fontWeight: 800, fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.01em' }}>

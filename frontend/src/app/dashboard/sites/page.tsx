@@ -13,36 +13,41 @@ export default function SitesPage() {
 
   useEffect(() => {
     const fetchSites = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUser(user);
-        
-        // Récupérer les sites de l'utilisateur
-        const { data: sitesData } = await supabase.from('sites').select('*').eq('user_id', user.id);
-        
-        // Récupérer toutes les machines
-        const { data: machinesData } = await supabase.from('machines').select('*');
-        
-        if (sitesData) {
-          const formattedSites = sitesData.map(s => {
-            // Filtrer les machines appartenant à ce site
-            const siteMachines = machinesData ? machinesData.filter((m: any) => m.site_id === s.id) : [];
-            const activeMachines = siteMachines.filter((m: any) => m.status === 'actif');
-            const totalPower = activeMachines.reduce((sum: number, m: any) => sum + parseFloat(m.puissance_nominale_kw || 0), 0);
-            const alertsCount = siteMachines.filter((m: any) => m.status === 'alerte').length;
+      if (!supabase) {
+        setSites([]);
+        return;
+      }
 
-            return {
-              id: s.id,
-              name: s.nom,
-              location: s.localisation,
-              status: alertsCount > 0 ? 'alerte' : 'optimal',
-              power: `${totalPower.toFixed(1)} kW`,
-              devices: siteMachines.length,
-              alerts: alertsCount
-            };
-          });
-          setSites(formattedSites);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+
+          const { data: sitesData } = await supabase.from('sites').select('*').eq('user_id', user.id);
+          const { data: machinesData } = await supabase.from('machines').select('*');
+
+          if (sitesData) {
+            const formattedSites = sitesData.map(s => {
+              const siteMachines = machinesData ? machinesData.filter((m: any) => m.site_id === s.id) : [];
+              const activeMachines = siteMachines.filter((m: any) => m.status === 'actif');
+              const totalPower = activeMachines.reduce((sum: number, m: any) => sum + parseFloat(m.puissance_nominale_kw || 0), 0);
+              const alertsCount = siteMachines.filter((m: any) => m.status === 'alerte').length;
+
+              return {
+                id: s.id,
+                name: s.nom,
+                location: s.localisation,
+                status: alertsCount > 0 ? 'alerte' : 'optimal',
+                power: `${totalPower.toFixed(1)} kW`,
+                devices: siteMachines.length,
+                alerts: alertsCount
+              };
+            });
+            setSites(formattedSites);
+          }
         }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des sites', error);
       }
     };
     fetchSites();
@@ -55,7 +60,7 @@ export default function SitesPage() {
   const handleAddSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSiteName || !newSiteLocation || !user) return;
-    
+
     try {
       const res = await fetch(`${API_URL}/api/sites`, {
         method: 'POST',
@@ -67,7 +72,7 @@ export default function SitesPage() {
         })
       });
       const data = await res.json();
-      
+
       if (data && !data.error) {
         const newSite = {
           id: data.id,
@@ -85,7 +90,7 @@ export default function SitesPage() {
     } catch (err) {
       console.error("Failed to add site:", err);
     }
-    
+
     setNewSiteName('');
     setNewSiteLocation('');
     setIsModalOpen(false);
@@ -112,8 +117,8 @@ export default function SitesPage() {
         {sites.map(site => (
           <div key={site.id} className="glass-card glow-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ 
-                backgroundColor: 'var(--primary-light)', 
+              <div style={{
+                backgroundColor: 'var(--primary-light)',
                 padding: '16px', borderRadius: '12px',
                 border: '1px solid rgba(16, 185, 129, 0.25)'
               }}>
@@ -134,7 +139,7 @@ export default function SitesPage() {
                   <Activity size={18} color="var(--secondary)" /> {site.power}
                 </div>
               </div>
-              
+
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>Appareils Connectés</div>
                 <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)' }}>{site.devices}</div>
@@ -152,9 +157,9 @@ export default function SitesPage() {
                   </div>
                 )}
               </div>
-              
-              <button 
-                className="btn-secondary" 
+
+              <button
+                className="btn-secondary"
                 style={{ width: 'auto' }}
                 onClick={() => router.push(`/dashboard/appareils?siteId=${site.id}`)}
               >
@@ -175,31 +180,31 @@ export default function SitesPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddSite}>
               <div className="input-group">
                 <label className="input-label">Nom du site</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
+                <input
+                  type="text"
+                  className="input-field"
                   placeholder="Ex: Usine Sud"
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
-                  required 
+                  required
                 />
               </div>
               <div className="input-group">
                 <label className="input-label">Localisation</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
+                <input
+                  type="text"
+                  className="input-field"
                   placeholder="Ex: Koumassi"
                   value={newSiteLocation}
                   onChange={(e) => setNewSiteLocation(e.target.value)}
-                  required 
+                  required
                 />
               </div>
-              
+
               <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
                 <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Annuler</button>
                 <button type="submit" className="btn-primary">Ajouter</button>

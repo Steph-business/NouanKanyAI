@@ -30,7 +30,7 @@ function generateDailyProfile(totalKw: number) {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  
+
   // États pour les appareils venant de l'API
   const [machines, setMachines] = useState<any[]>([]);
   const [totalConso, setTotalConso] = useState(0);
@@ -51,6 +51,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkUser = async () => {
+      if (!supabase) {
+        const mockUser = localStorage.getItem('mockUser');
+        if (mockUser) {
+          setUser(JSON.parse(mockUser));
+        } else {
+          router.push('/');
+        }
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
         setUser({
@@ -62,21 +72,21 @@ export default function DashboardPage() {
       }
     };
     checkUser();
-    
+
     // Fetch live machines state
     const fetchMachines = async () => {
       try {
         const res = await fetch(`${API_URL}/api/machines`);
         const data = await res.json();
         setMachines(data);
-        
+
         // Calculate total consumption dynamically
         const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
         setTotalConso(total);
-        
+
         // Generate realistic chart data from real machine power
         setChartData(generateDailyProfile(total));
-        
+
         // Calculate monthly savings dynamically: 15% savings at CIE tariff 68 FCFA/kWh
         const monthlySavings = total * 24 * 30 * 68 * 0.15;
         setEconomiesMois(monthlySavings);
@@ -99,7 +109,7 @@ export default function DashboardPage() {
         console.error("Failed to fetch machines/recommendations:", err);
       }
     };
-    
+
     fetchMachines();
     const interval = setInterval(fetchMachines, 5000);
     return () => clearInterval(interval);
@@ -107,11 +117,11 @@ export default function DashboardPage() {
 
   const toggleAppareil = async (machine_id: string, nom: string, current_status: string) => {
     if (loadingMachineId) return; // Prevent double clicks
-    
+
     setLoadingMachineId(machine_id);
     const actionText = ['actif', 'eco'].includes(current_status) ? `Mise hors tension de ${nom}...` : `Allumage de ${nom}...`;
     const actionType = ['actif', 'eco'].includes(current_status) ? 'info' : 'success';
-    
+
     showToast(actionText, actionType);
 
     try {
@@ -122,7 +132,7 @@ export default function DashboardPage() {
       setMachines(data);
       const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
       setTotalConso(total);
-      
+
       showToast(['actif', 'eco'].includes(current_status) ? `${nom} est maintenant hors ligne.` : `${nom} est maintenant actif.`, 'success');
     } catch (err) {
       console.error("Erreur lors du basculement", err);
@@ -136,7 +146,7 @@ export default function DashboardPage() {
     if (loadingMachineId) return;
     setLoadingMachineId(machine_id);
     showToast(`Activation du mode Éco sur ${nom}...`, 'info');
-    
+
     try {
       await fetch(`http://localhost:8000/api/machines/${machine_id}/eco`, { method: 'POST' });
       const res = await fetch('http://localhost:8000/api/machines');
@@ -171,24 +181,24 @@ export default function DashboardPage() {
 
       {/* Alerte IA Premium Banner */}
       {aiSuggestion && (
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'flex-start', 
-          gap: '16px', 
-          padding: '20px', 
-          background: aiSuggestion.type.includes('Surchauffe') 
-            ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.02) 100%)' 
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '16px',
+          padding: '20px',
+          background: aiSuggestion.type.includes('Surchauffe')
+            ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.02) 100%)'
             : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
-          border: `1px solid ${aiSuggestion.type.includes('Surchauffe') ? 'rgba(220, 62, 62, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`, 
+          border: `1px solid ${aiSuggestion.type.includes('Surchauffe') ? 'rgba(220, 62, 62, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
           borderLeft: `4px solid ${aiSuggestion.type.includes('Surchauffe') ? '#ef4444' : 'var(--accent)'}`,
-          borderRadius: '12px', 
+          borderRadius: '12px',
           marginBottom: '32px',
           boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
           backdropFilter: 'blur(10px)'
         }}>
-          <div style={{ 
-            backgroundColor: aiSuggestion.type.includes('Surchauffe') ? 'var(--danger)' : 'var(--accent)', 
-            padding: '8px', 
+          <div style={{
+            backgroundColor: aiSuggestion.type.includes('Surchauffe') ? 'var(--danger)' : 'var(--accent)',
+            padding: '8px',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
@@ -198,14 +208,14 @@ export default function DashboardPage() {
             {aiSuggestion.type.includes('Surchauffe') ? <AlertTriangle size={18} color="#fff" /> : <Bot size={18} color="#fff" />}
           </div>
           <div>
-            <div style={{ 
-              fontWeight: 700, 
-              color: aiSuggestion.type.includes('Surchauffe') ? '#f87171' : 'var(--accent)', 
-              marginBottom: '6px', 
+            <div style={{
+              fontWeight: 700,
+              color: aiSuggestion.type.includes('Surchauffe') ? '#f87171' : 'var(--accent)',
+              marginBottom: '6px',
               fontSize: '15px',
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px' 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
               {aiSuggestion.type} sur {aiSuggestion.machine_id}
             </div>
@@ -262,29 +272,29 @@ export default function DashboardPage() {
               <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="consoActive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--secondary)" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="var(--secondary)" stopOpacity={0.3}/>
+                    <stop offset="0%" stopColor="var(--secondary)" stopOpacity={1} />
+                    <stop offset="100%" stopColor="var(--secondary)" stopOpacity={0.3} />
                   </linearGradient>
                   <linearGradient id="consoDim" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.15)" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="rgba(255,255,255,0.02)" stopOpacity={0.3}/>
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.15)" stopOpacity={1} />
+                    <stop offset="100%" stopColor="rgba(255,255,255,0.02)" stopOpacity={0.3} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  cursor={{fill: 'var(--surface-hover)'}}
+                <Tooltip
+                  cursor={{ fill: 'var(--surface-hover)' }}
                   contentStyle={{ backgroundColor: 'var(--background-alt)', borderColor: 'var(--surface-border)', borderRadius: '8px' }}
                   itemStyle={{ color: 'var(--foreground)', fontSize: '13px' }}
                   labelStyle={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}
                 />
                 <Bar dataKey="conso" radius={[4, 4, 0, 0]}>
-                   {chartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.conso > (totalConso * 0.8) ? 'url(#consoActive)' : 'url(#consoDim)'} 
-                      />
-                    ))}
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.conso > (totalConso * 0.8) ? 'url(#consoActive)' : 'url(#consoDim)'}
+                    />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -300,29 +310,29 @@ export default function DashboardPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {machines.slice(0, 3).map((appareil) => (
-              <div key={appareil.machine_id} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                padding: '16px', 
-                border: '1px solid var(--surface-border)', 
+              <div key={appareil.machine_id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px',
+                border: '1px solid var(--surface-border)',
                 borderRadius: '12px',
                 backgroundColor: 'rgba(255, 255, 255, 0.01)',
                 transition: 'all 0.2s ease'
               }}
-              className="nav-item-hover-only" // Added simple border hover
+                className="nav-item-hover-only" // Added simple border hover
               >
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', color: 'var(--foreground)' }}>{appareil.nom}</div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appareil.power_kw} kW • {appareil.temperature_c.toFixed(1)}°C</div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <div 
+                  <div
                     onClick={() => toggleEco(appareil.machine_id, appareil.nom)}
-                    style={{ 
-                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer', 
-                      padding: '8px', 
-                      borderRadius: '50%', 
+                    style={{
+                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer',
+                      padding: '8px',
+                      borderRadius: '50%',
                       backgroundColor: appareil.status === 'eco' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                       color: appareil.status === 'eco' ? '#10b981' : 'var(--text-muted)',
                       border: appareil.status === 'eco' ? '1px solid #10b981' : '1px solid var(--surface-border)',
@@ -334,12 +344,12 @@ export default function DashboardPage() {
                   >
                     <Leaf size={16} />
                   </div>
-                  <div 
+                  <div
                     onClick={() => toggleAppareil(appareil.machine_id, appareil.nom, appareil.status)}
-                    style={{ 
-                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer', 
-                      padding: '8px', 
-                      borderRadius: '50%', 
+                    style={{
+                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer',
+                      padding: '8px',
+                      borderRadius: '50%',
                       backgroundColor: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary-light)' : 'rgba(239, 68, 68, 0.1)',
                       color: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary)' : '#EF4444',
                       border: ['actif', 'eco'].includes(appareil.status) ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.2)',
@@ -363,16 +373,16 @@ export default function DashboardPage() {
       </div>
       {/* Custom Toast Notification pour le Dashboard */}
       {toastMessage && (
-        <div style={{ 
-          position: 'fixed', 
-          bottom: '32px', 
-          right: '32px', 
-          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6', 
-          color: '#fff', 
-          padding: '16px 24px', 
-          borderRadius: '12px', 
-          fontWeight: 600, 
-          zIndex: 99999, 
+        <div style={{
+          position: 'fixed',
+          bottom: '32px',
+          right: '32px',
+          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6',
+          color: '#fff',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          fontWeight: 600,
+          zIndex: 99999,
           boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
           display: 'flex',
           alignItems: 'center',
@@ -385,7 +395,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
