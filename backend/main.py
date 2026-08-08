@@ -3,6 +3,13 @@ main.py — API FastAPI pour exposer les modèles d'IA au frontend React.
 Endpoints: /api/predict, /api/anomaly, /api/recommend
 """
 
+import sys
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parent
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,21 +21,39 @@ import uuid
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+from app.services.demo_data import load_demo_machine_state
+from app.interface.routers import machines, predictions, billing, recommendations, chat, admin
+
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+BASE_DIR = Path(__file__).resolve().parent
+MODELS_DIR = BASE_DIR / "ml" / "models"
+DATASET_PATH = BASE_DIR / "ml" / "data" / "sensor_data.csv"
 
 url = os.environ.get("SUPABASE_URL", "")
 if url and not url.startswith("http"):
     url = f"https://{url}.supabase.co"
 key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
+supabase: Optional[Client] = None
 try:
-    supabase: Client = create_client(url, key)
-    print(f"[OK] Connecté à Supabase ({url})")
+    if url and key:
+        supabase = create_client(url, key)
+        print(f"[OK] Connecté à Supabase ({url})")
+    else:
+        print("[WARN] Supabase non configuré; mode démo local activé")
 except Exception as e:
-    print(f"[ERROR] Erreur Supabase: {e}")
+    print(f"[WARN] Supabase indisponible: {e}. Mode démo local activé")
     supabase = None
 
 app = FastAPI(title="NouanKanyAI — Intelligence Artificielle", version="1.0.0")
+
+app.include_router(machines.router, prefix="/api/v1", tags=["machines"])
+app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
+app.include_router(billing.router, prefix="/api/v1", tags=["billing"])
+app.include_router(recommendations.router, prefix="/api/v1", tags=["recommendations"])
+app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
+app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 
 # CORS pour que le frontend Next.js puisse appeler l'API.
 # En production, définir FRONTEND_URL (ex: https://nouankanyai-frontend.onrender.com).
@@ -52,9 +77,13 @@ app.add_middleware(
 )
 
 # Charger les modèles au démarrage
-MODELS_DIR = os.path.join(os.path.dirname(__file__), 'ml', 'models')
 xgb_data = None
 iso_data = None
+
+
+def _load_demo_machine_state() -> List[dict]:
+    return load_demo_machine_state()
+
 
 def load_models():
     global xgb_data, iso_data
@@ -102,10 +131,15 @@ def root():
 
 @app.get("/api/machines")
 def get_machines():
-    """Retourne l'état de toutes les machines depuis Supabase."""
-    if not supabase: return []
-    
-    machines_res = supabase.table("machines").select("*").execute()
+    """Retourne l'état de toutes les machines depuis Supabase ou en mode démo local."""
+    if not supabase:
+        return _load_demo_machine_state()
+
+    try:
+        machines_res = supabase.table("machines").select("*").execute()
+    except Exception as exc:
+        print(f"[WARN] Inaccessible Supabase pour /api/machines: {exc}")
+        return _load_demo_machine_state()
     metrics_res = supabase.table("sensor_metrics").select("*").order("recorded_at", desc=True).execute()
     
     # Récupérer les sites pour faire l'association
@@ -144,7 +178,25 @@ def get_machines():
 @app.get("/api/facturation")
 def get_facturation():
     """Retourne les données de facturation (calculées dynamiquement) et l'historique."""
-    if not supabase: return {}
+    if not supabase:
+        demo_machines = _load_demo_machine_state()
+        total_power_kw = sum(float(m.get("power_kw", 0)) for m in demo_machines)
+        estimated_monthly_cost = total_power_kw * 24 * 30 * 100
+        gross_savings = estimated_monthly_cost * 0.15
+        gain_share = gross_savings * 0.10
+        return {
+            "grossSavings": gross_savings,
+            "gainShare": gain_share,
+            "barData": [
+                {"name": "W1", "savings": gross_savings * 0.15},
+                {"name": "W2", "savings": gross_savings * 0.20},
+                {"name": "W3", "savings": gross_savings * 0.18},
+                {"name": "W4", "savings": gross_savings * 0.22},
+                {"name": "W5", "savings": gross_savings * 0.25},
+            ],
+            "auditTrail": [],
+            "invoices": [],
+        }
     
     # Récupérer les machines pour calculer l'économie en temps réel
     machines_res = supabase.table("machines").select("*").execute()
@@ -197,7 +249,27 @@ def get_facturation():
 @app.get("/api/admin/metrics")
 def get_admin_metrics():
     """Retourne les métriques globales de la plateforme (pour les admins)."""
-    if not supabase: return {}
+    if not supabase:
+        demo_machines = _load_demo_machine_state()
+        total_machines = len(demo_machines)
+        active_machines = sum(1 for m in demo_machines if m.get("status") in ["actif", "eco"])
+        total_power = sum(float(m.get("power_kw", 0)) for m in demo_machines)
+        global_savings = total_power * 24 * 30 * 100 * 0.15
+        return {
+            "platform": {
+                "total_sites": 3,
+                "total_machines": total_machines,
+                "active_machines": active_machines,
+                "global_savings_xof": global_savings,
+                "revenue_xof": global_savings * 0.10,
+            },
+            "users": [
+                {"id": "demo-1", "name": "Demo Admin", "email": "demo@nouankanyai.com", "role": "Industriel", "last_active": "Aujourd'hui", "status": "actif", "sites_count": 3, "machines_count": total_machines},
+            ],
+            "recent_activities": [{"user_name": "Demo Admin", "action": "Analyse locale", "target": "Mode démo", "timestamp": "Maintenant"}],
+            "ml_health": {"xgboost_accuracy": 98.9, "xgboost_mape": 1.2, "isolation_forest_anomalies_detected": 1006, "model_drift_status": "NORMAL"},
+            "system": {"api_uptime": "99.99%", "avg_latency_ms": 42, "database_status": "LOCAL-DEMO", "blockchain_ledger": "SYNCED"},
+        }
     
     try:
         # Récupérer les stats globales
@@ -468,7 +540,10 @@ def predict(req: PredictionRequest):
     if xgb_data is None:
         return {"error": "Modèle XGBoost non chargé. Entraînez-le d'abord."}
     
-    from ml.recommendation_engine import predict_next_hours
+    try:
+        from ml.recommendation_engine import predict_next_hours
+    except ModuleNotFoundError:
+        from backend.ml.recommendation_engine import predict_next_hours
     predictions = predict_next_hours(
         xgb_data, req.machine_id,
         req.temperature_c, req.vibration_hz, req.pressure_bar,
@@ -482,7 +557,10 @@ def check_anomaly(reading: SensorReading):
     if iso_data is None:
         return {"error": "Modèle Isolation Forest non chargé. Entraînez-le d'abord."}
     
-    from ml.recommendation_engine import detect_anomalies
+    try:
+        from ml.recommendation_engine import detect_anomalies
+    except ModuleNotFoundError:
+        from backend.ml.recommendation_engine import detect_anomalies
     result = detect_anomalies(iso_data, reading.model_dump())
     return {"machine_id": reading.machine_id, **result}
 
@@ -492,7 +570,10 @@ def get_recommendations(machines: List[SensorReading]):
     if xgb_data is None or iso_data is None:
         return {"error": "Les modèles ne sont pas chargés. Entraînez-les d'abord."}
     
-    from ml.recommendation_engine import generate_recommendations
+    try:
+        from ml.recommendation_engine import generate_recommendations
+    except ModuleNotFoundError:
+        from backend.ml.recommendation_engine import generate_recommendations
     machines_state = [m.model_dump() for m in machines]
     recs = generate_recommendations(xgb_data, iso_data, machines_state)
     return {"recommendations": recs, "count": len(recs)}
