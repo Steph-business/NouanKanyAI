@@ -1,8 +1,8 @@
 """
 app/ml/ — Module principal de la couche Machine Learning de NouanKanyAI.
 
-Expose le gestionnaire central `ModelManager` ainsi que les services d'inférence,
-le valideur de caractéristiques, le prétraiteur, les registres et exceptions du domaine ML.
+Expose le gestionnaire central `ModelManager`, les services d'inférence,
+d'audit, d'événements, d'observabilité et de santé du domaine ML.
 """
 
 import logging
@@ -17,6 +17,13 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 from app.ml.anomaly_detector import AnomalyDetectionService
+from app.ml.audit import AuditLogger, AuditRecord
+from app.ml.events import (
+    EventHandler,
+    MLEvent,
+    MLEventDispatcher,
+    MLEventType,
+)
 from app.ml.exceptions import (
     ArtifactMissingError,
     FeatureValidationError,
@@ -32,6 +39,7 @@ from app.ml.health import HealthChecker
 from app.ml.loader import ModelLoader
 from app.ml.manager import ModelManager
 from app.ml.metrics import ModelMetricsEvaluator, PerformanceMetrics
+from app.ml.metrics_service import MetricsService
 from app.ml.monitoring import MLInferenceMetrics
 from app.ml.predictor import PredictionEngine
 from app.ml.preprocessing import (
@@ -44,6 +52,7 @@ from app.ml.preprocessing import (
 from app.ml.registry import RegistryManager
 from app.ml.types import (
     AnomalyResult,
+    ComponentHealth,
     HealthStatus,
     ModelInfo,
     PredictionMetadata,
@@ -59,6 +68,13 @@ __all__ = [
     "PredictionEngine",
     "ForecastingService",
     "AnomalyDetectionService",
+    "MetricsService",
+    "AuditLogger",
+    "AuditRecord",
+    "MLEventDispatcher",
+    "MLEvent",
+    "MLEventType",
+    "EventHandler",
     "FeatureValidator",
     "FeaturePreprocessor",
     "extract_temporal_features",
@@ -74,6 +90,7 @@ __all__ = [
     "ModelInfo",
     "RegistryEntry",
     "HealthStatus",
+    "ComponentHealth",
     "PredictionMetadata",
     "MLException",
     "ModelNotLoadedError",

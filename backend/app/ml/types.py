@@ -139,15 +139,36 @@ class RegistryEntry(BaseModel):
     )
 
 
+class ComponentHealth(BaseModel):
+    """
+    Diagnostic individuel d'un sous-composant ML.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    status: str = Field(..., description="État du composant (UP, DOWN, DEGRADED, WARN)")
+    message: str = Field(default="", description="Message explicatif ou statut textuel")
+    latency_ms: Optional[float] = Field(
+        default=None, description="Temps de réponse du composant en ms"
+    )
+    details: Dict[str, Any] = Field(
+        default_factory=dict, description="Métadonnées spécifiques au composant"
+    )
+
+
 class HealthStatus(BaseModel):
     """
-    État de santé global de la couche ML.
+    État de santé global de la couche ML avec diagnostic multi-composants.
     """
 
     model_config = ConfigDict(frozen=True)
 
     status: str = Field(
-        ..., description="Statut synthétique de la couche ML (ex: healthy, degraded, unhealthy)"
+        ..., description="Statut synthétique de la couche ML (healthy, degraded, unhealthy)"
+    )
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Horodatage UTC du diagnostic de santé",
     )
     models_loaded: bool = Field(
         ..., description="Indique si l'ensemble des modèles est chargé en mémoire"
@@ -158,7 +179,13 @@ class HealthStatus(BaseModel):
     feature_schema_loaded: bool = Field(
         ..., description="Indique si le schéma des caractéristiques est accessible"
     )
+    artifacts_ready: bool = Field(
+        default=True, description="Indique si l'ensemble des artefacts physiques est intègre"
+    )
     version: str = Field(..., description="Version courante active du système ML")
+    components: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="État détaillé de chaque sous-composant"
+    )
     details: Dict[str, Any] = Field(
         default_factory=dict, description="Informations de diagnostic additionnelles"
     )

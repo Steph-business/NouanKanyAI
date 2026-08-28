@@ -7,11 +7,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.ml.anomaly_detector import AnomalyDetectionService
+from app.ml.audit import AuditLogger
+from app.ml.events import MLEventDispatcher, MLEventType
 from app.ml.exceptions import ModelNotLoadedError
 from app.ml.forecasting import ForecastingService
 from app.ml.health import HealthChecker
 from app.ml.loader import ModelLoader
 from app.ml.metrics import ModelMetricsEvaluator
+from app.ml.metrics_service import MetricsService
 from app.ml.monitoring import MLInferenceMetrics
 from app.ml.predictor import PredictionEngine
 from app.ml.registry import RegistryManager
@@ -30,7 +33,7 @@ class ModelManager:
     """
     Point d'entrée unique et façade centrale pour l'ensemble des fonctionnalités ML.
     Masque l'intégralité de la complexité interne (chargement joblib, validation,
-    registre, métriques) et offre une interface publique stricte et typée.
+    registre, métriques, audit, événements) et offre une interface publique stricte et typée.
     """
 
     def __init__(self, artifacts_dir: Optional[str | Path] = None) -> None:
@@ -42,7 +45,21 @@ class ModelManager:
         self.loader = ModelLoader(artifacts_dir=artifacts_dir)
         self.registry = RegistryManager(registry_dir=self.loader.artifacts_dir / "registry")
         self.metrics_monitor = MLInferenceMetrics()
-        self.health_checker = HealthChecker()
+        self.audit_logger = AuditLogger(
+            log_file_path=self.loader.artifacts_dir / "logs" / "ml_audit.jsonl"
+        )
+        self.event_dispatcher = MLEventDispatcher()
+        self.health_checker = HealthChecker(
+            loader=self.loader,
+            registry=self.registry,
+            metrics_monitor=self.metrics_monitor,
+        )
+        self.metrics_service = MetricsService(
+            metrics_monitor=self.metrics_monitor,
+            audit_logger=self.audit_logger,
+            registry_manager=self.registry,
+            health_checker=self.health_checker,
+        )
 
         self._validator: Optional[FeatureValidator] = None
         self._forecasting_service: Optional[ForecastingService] = None
@@ -50,7 +67,7 @@ class ModelManager:
         self._prediction_engine: Optional[PredictionEngine] = None
         self._is_loaded: bool = False
 
-        logger.debug("[ModelManager] Instance du gestionnaire initialisée.")
+        logger.debug("[ModelManager] Instance du gestionnaire initialisée avec observabilité.")
 
     def load_models(self) -> None:
         """
@@ -138,12 +155,14 @@ class ModelManager:
             feature_names=anomaly_features,
         )
 
-        # 7. Moteur d'inférence
+        # 7. Moteur d'inférence avec observabilité
         self._prediction_engine = PredictionEngine(
             forecasting_service=self._forecasting_service,
             anomaly_service=self._anomaly_service,
             validator=self._validator,
             metrics_monitor=self.metrics_monitor,
+            audit_logger=self.audit_logger,
+            event_dispatcher=self.event_dispatcher,
         )
 
         self._is_loaded = True
@@ -154,6 +173,17 @@ class ModelManager:
             }
         )
 
+        # 8. Émission de l'événement de chargement réussi
+        self.event_dispatcher.dispatch(
+            event_type=MLEventType.MODEL_LOADED,
+            model_name="ALL",
+            model_version=version,
+            payload={
+                "models": ["XGBoost_Forecaster", "IsolationForest_AnomalyDetector"],
+                "version": version,
+            },
+        )
+
         logger.info("ML subsystem ready.")
 
     def reload_models(self) -> None:
@@ -162,6 +192,10 @@ class ModelManager:
         """
         logger.info("[ModelManager] Demande de rechargement des modèles reçue...")
         self.load_models()
+        self.event_dispatcher.dispatch(
+            event_type=MLEventType.MODEL_RELOADED,
+            payload={"action": "hot_reload", "status": "SUCCESS"},
+        )
         logger.info("[ModelManager] Rechargement effectué avec succès.")
 
     def predict(
@@ -237,18 +271,10 @@ class ModelManager:
 
         :return: Dictionnaire complet des métriques du système.
         """
-        xgb_info = self.get_model_info("XGBoost_Forecaster")
-        if_info = self.get_model_info("IsolationForest_AnomalyDetector")
-
-        training_metrics = ModelMetricsEvaluator.format_summary(
-            forecasting_metrics=xgb_info.metrics, anomaly_metrics=if_info.metrics
+        return self.metrics_service.get_dashboard_summary(
+            models_loaded=self._is_loaded,
+            version=self.registry.get_latest_version() if self._is_loaded else "2.0.0",
         )
-        runtime_metrics = self.metrics_monitor.get_summary()
-
-        return {
-            "training_metrics": training_metrics,
-            "runtime_inference": runtime_metrics,
-        }
 
     def health_check(self) -> HealthStatus:
         """
@@ -257,13 +283,23 @@ class ModelManager:
         :return: Instance typée `HealthStatus`.
         """
         version = self.registry.get_latest_version() if self._is_loaded else "N/A"
-        return self.health_checker.check(
+        health = self.health_checker.check(
             models_loaded=self._is_loaded,
             registry_loaded=True,
             feature_schema_loaded=(self._validator is not None),
             version=version,
+            forecasting_ready=(self._forecasting_service is not None and self._forecasting_service.model is not None),
+            anomaly_ready=(self._anomaly_service is not None and self._anomaly_service.model is not None),
             additional_details=self.metrics_monitor.get_summary(),
         )
+
+        self.event_dispatcher.dispatch(
+            event_type=MLEventType.HEALTH_CHECKED,
+            payload={"status": health.status, "version": health.version},
+            level="WARNING" if health.status != "healthy" else "INFO",
+        )
+
+        return health
 
     def list_models(self) -> List[ModelInfo]:
         """
