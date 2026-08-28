@@ -6,6 +6,7 @@ import { ArrowUpRight, Zap, Target, Power, AlertTriangle, Bot, Leaf } from 'luci
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/api';
+import { MLHealthBadge } from '@/components/ml';
 
 // Génère un profil de consommation journalier réaliste à partir de la puissance totale des machines
 function generateDailyProfile(totalKw: number) {
@@ -125,9 +126,9 @@ export default function DashboardPage() {
     showToast(actionText, actionType);
 
     try {
-      await fetch(`http://localhost:8000/api/machines/${machine_id}/toggle`, { method: 'POST' });
+      await fetch(`${API_URL}/api/machines/${machine_id}/toggle`, { method: 'POST' });
       // Fetch machines again to update UI
-      const res = await fetch('http://localhost:8000/api/machines');
+      const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
       setMachines(data);
       const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
@@ -148,8 +149,8 @@ export default function DashboardPage() {
     showToast(`Activation du mode Éco sur ${nom}...`, 'info');
 
     try {
-      await fetch(`http://localhost:8000/api/machines/${machine_id}/eco`, { method: 'POST' });
-      const res = await fetch('http://localhost:8000/api/machines');
+      await fetch(`${API_URL}/api/machines/${machine_id}/eco`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
       setMachines(data);
       const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
@@ -165,10 +166,9 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 className="text-gradient" style={{ fontSize: '32px', fontWeight: 800, marginBottom: '6px' }}>
             Bonjour, {user.nom.split(' ')[0]} 👋
@@ -177,6 +177,8 @@ export default function DashboardPage() {
             Voici la vue d'ensemble de votre infrastructure énergétique.
           </p>
         </div>
+
+        <MLHealthBadge showDetails={true} />
       </div>
 
       {/* Alerte IA Premium Banner */}
