@@ -1,11 +1,34 @@
 """
-main.py — API FastAPI pour exposer les modèles d'IA au frontend React.
-Endpoints: /api/predict, /api/anomaly, /api/recommend
+backend/main.py — Point d'entrée principal du serveur API FastAPI de NouanKanyAI.
+
+Architecture et Chaîne de Fonctionnement :
+-----------------------------------------
+1. Initialisation & Configuration :
+   - Chargement des variables d'environnement (.env).
+   - Connexion conditionnelle à Supabase (ou bascule transparente en mode démo local).
+   - Configuration du cycle de vie FastAPI (`lifespan`) pour précharger les pipelines ML en mémoire.
+
+2. Gestion des Modèles & Sous-système ML (Sprint 2) :
+   - Initialisation du singleton `ModelManager` (couche `app/ml`).
+   - Montage des routes d'inférence, de monitoring et de registre sous `/api/v1/ml/*`.
+   - Enregistrement des gestionnaires d'exceptions centralisés pour produire des enveloppes d'erreur uniformes.
+
+3. Routes Applicatives (Interface Dashboard Next.js) :
+   - `/api/v1/machines`        : Surveillance des capteurs et état des équipements.
+   - `/api/v1/predictions`     : Estimations simplifiées de charge.
+   - `/api/v1/billing`         : Facturation et optimisation tarifaire CIE.
+   - `/api/v1/recommendations` : Recommandations d'actions générées par l'IA.
+   - `/api/v1/chat`            : Assistant conversationnel Copilot pour les opérateurs.
+   - `/api/v1/admin`           : Diagnostics administratifs et contrôle global.
+
+4. Sécurité & CORS :
+   - Autorisation des requêtes cross-origin pour les instances locales et distantes de Next.js.
 """
 
 import sys
 from pathlib import Path
 
+# Résolution et injection du dossier racine backend dans le sys.path Python
 BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
@@ -29,12 +52,16 @@ from app.api.v1.ml.router import router as ml_router
 from app.api.handlers import register_ml_exception_handlers
 from app.api.deps import set_model_manager, get_model_manager
 
+# Chargement du fichier de configuration .env local
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 BASE_DIR = Path(__file__).resolve().parent
 MODELS_DIR = BASE_DIR / "ml" / "models"
 DATASET_PATH = BASE_DIR / "ml" / "data" / "sensor_data.csv"
 
+# =====================================================================
+# Connexion à la Base de Données Supabase (avec Fallback Démo)
+# =====================================================================
 url = os.environ.get("SUPABASE_URL", "")
 if url and not url.startswith("http"):
     url = f"https://{url}.supabase.co"
@@ -51,6 +78,9 @@ except Exception as e:
     print(f"[WARN] Supabase indisponible: {e}. Mode démo local activé")
     supabase = None
 
+# =====================================================================
+# Initialisation du Singleton ModelManager (Couche ML)
+# =====================================================================
 ml_manager = None
 try:
     from app.ml.manager import ModelManager
@@ -59,13 +89,20 @@ try:
 except Exception as e:
     print(f"[WARN] Impossible d'initialiser ModelManager : {e}")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Gestionnaire du cycle de vie de l'application FastAPI.
+    Exécuté au démarrage pour précharger les artefacts ML en mémoire et libérer les ressources à l'arrêt.
+    """
     if ml_manager:
         try:
+            # Préchargement des modèles XGBoost et Isolation Forest
             ml_manager.load_models()
         except Exception as e:
             print(f"[WARN] Erreur chargement sous-système ML: {e}")
+    # Chargement des modèles legacy si présents
     load_models()
     yield
 
