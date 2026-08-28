@@ -1,0 +1,31 @@
+{
+    "version": "1.0.0",
+    "name": "IsolationForest_AnomalyDetector",
+    "trained_at": "20260820_1450",
+    "features": [
+        "power_kw",
+        "temperature_c",
+        "vibration_hz",
+        "pressure_bar",
+        "power_rolling_std",
+        "consumption_delta",
+        "hour"
+    ],
+    "hyperparameters": {
+        "bootstrap": false,
+        "contamination": 0.05,
+        "max_features": 1.0,
+        "max_samples": "auto",
+        "n_estimators": 300,
+        "n_jobs": null,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false
+    },
+    "metrics": {
+        "f1_score": 0.10952380952380952,
+        "contamination_parameter": 0.05,
+        "n_estimators": 300
+    },
+    "status": "RESEARCH"
+}

@@ -1,0 +1,20 @@
+{
+    "XGBoost_Forecaster": {
+        "description": "Predicts next hour power consumption.",
+        "metrics": {
+            "r2_score": 0.9442944747268415,
+            "mae": 11.279748175235845,
+            "rmse": 27.582107137831933,
+            "status": "PASS"
+        },
+        "threshold_applied": 0.92
+    },
+    "IsolationForest_Anomaly": {
+        "description": "Unsupervised anomaly detection for sensory inputs.",
+        "metrics": {
+            "f1_score": 0.10952380952380952,
+            "status": "FAIL"
+        },
+        "threshold_applied": 0.15
+    }
+}

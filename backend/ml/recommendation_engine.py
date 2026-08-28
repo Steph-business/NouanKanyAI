@@ -86,7 +86,7 @@ def detect_anomalies(iso_data, sensor_readings):
     score = model.decision_function(input_data)[0]
     
     return {
-        'is_anomaly': prediction == -1,
+        'is_anomaly': bool(prediction == -1),
         'anomaly_score': round(float(score), 4),
         'severity': 'critique' if score < -0.3 else 'modérée' if score < -0.1 else 'faible'
     }

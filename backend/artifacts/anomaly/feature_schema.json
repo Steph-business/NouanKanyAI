@@ -1,0 +1,33 @@
+{
+    "project": "NouanKanyAI",
+    "version": "1.0.0",
+    "forecasting": {
+        "model": "XGBoost_Forecaster",
+        "features": [
+            "power_kw",
+            "power_kw_lag_1",
+            "power_kw_lag_6",
+            "power_kw_lag_24",
+            "power_rolling_mean",
+            "power_rolling_std",
+            "hour",
+            "day_of_week",
+            "is_weekend",
+            "is_peak_hour",
+            "temperature_c"
+        ]
+    },
+    "anomaly_detection": {
+        "model": "IsolationForest_AnomalyDetector",
+        "features": [
+            "power_kw",
+            "temperature_c",
+            "vibration_hz",
+            "pressure_bar",
+            "power_rolling_std",
+            "consumption_delta",
+            "hour"
+        ]
+    },
+    "target": "power_kw(t+1)"
+}

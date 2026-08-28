@@ -50,6 +50,11 @@ except Exception as e:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if ml_manager:
+        try:
+            ml_manager.load_models()
+        except Exception as e:
+            print(f"[WARN] Erreur chargement sous-système ML: {e}")
     load_models()
     yield
 
@@ -87,19 +92,27 @@ app.add_middleware(
 xgb_data = None
 iso_data = None
 
+ml_manager = None
+try:
+    from app.ml.manager import ModelManager
+    ml_manager = ModelManager()
+except Exception as e:
+    print(f"[WARN] Impossible d'initialiser ModelManager : {e}")
 
 def _load_demo_machine_state() -> List[dict]:
     return load_demo_machine_state()
 
-
 def load_models():
     global xgb_data, iso_data
+    import warnings
     xgb_path = os.path.join(MODELS_DIR, 'xgboost_model.pkl')
     iso_path = os.path.join(MODELS_DIR, 'isolation_forest.pkl')
     
     if os.path.exists(xgb_path):
         try:
-            xgb_data = joblib.load(xgb_path)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                xgb_data = joblib.load(xgb_path)
             print("[OK] Modele XGBoost charge.")
         except Exception as exc:
             print(f"[WARN] Impossible de charger XGBoost: {exc}")
@@ -109,7 +122,9 @@ def load_models():
     
     if os.path.exists(iso_path):
         try:
-            iso_data = joblib.load(iso_path)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                iso_data = joblib.load(iso_path)
             print("[OK] Modele Isolation Forest charge.")
         except Exception as exc:
             print(f"[WARN] Impossible de charger Isolation Forest: {exc}")
@@ -193,6 +208,27 @@ class PredictionRequest(BaseModel):
 @app.get("/")
 def root():
     return {"message": "NouanKanyAI API is running", "version": "1.0.0"}
+
+@app.get("/api/ml/health")
+def ml_health():
+    """Retourne l'état de santé du sous-système ML."""
+    if not ml_manager:
+        return {"status": "unavailable", "models_loaded": False}
+    return ml_manager.health_check().model_dump()
+
+@app.get("/api/ml/models")
+def ml_models():
+    """Retourne la liste des modèles enregistrés dans le registre ML."""
+    if not ml_manager:
+        return []
+    return [m.model_dump() for m in ml_manager.list_models()]
+
+@app.get("/api/ml/metrics")
+def ml_metrics():
+    """Retourne les métriques de performance et de suivi ML."""
+    if not ml_manager:
+        return {}
+    return ml_manager.get_metrics()
 
 @app.get("/api/machines")
 def get_machines():
