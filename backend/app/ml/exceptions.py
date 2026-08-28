@@ -51,6 +51,14 @@ class PredictionError(MLException):
     pass
 
 
+class PreprocessingError(MLException):
+    """
+    Levée lorsqu'une erreur survient lors du prétraitement ou de l'alignement des caractéristiques.
+    """
+
+    pass
+
+
 class ManifestError(MLException):
     """
     Levée lorsque le manifeste de déploiement est absent, invalide ou corrompu.

@@ -75,6 +75,7 @@ class PredictionResponseSchema(BaseModel):
     Schéma de réponse pour une prédiction énergétique.
     """
 
+    request_id: str = Field(..., description="Identifiant unique universel (UUID) de la requête")
     prediction: float = Field(..., description="Valeur prédite pour t+1h")
     unit: str = Field(default="kW", description="Unité de mesure")
     model_name: str = Field(..., description="Nom du modèle ayant généré la prédiction")
@@ -89,6 +90,7 @@ class AnomalyResponseSchema(BaseModel):
     Schéma de réponse pour une analyse d'anomalie.
     """
 
+    request_id: str = Field(..., description="Identifiant unique universel (UUID) de la requête")
     is_anomaly: bool = Field(..., description="Indique si une anomalie a été détectée")
     anomaly_score: float = Field(
         ..., description="Score brut de décision d'Isolation Forest"
@@ -98,6 +100,10 @@ class AnomalyResponseSchema(BaseModel):
     )
     confidence: float = Field(
         ..., description="Niveau de confiance dans le résultat (0.0 à 1.0)"
+    )
+    severity: str = Field(
+        default="normal",
+        description="Niveau de sévérité de l'anomalie (normal, faible, modérée, critique)",
     )
     model_name: str = Field(..., description="Nom du modèle utilisé")
     model_version: str = Field(..., description="Version du modèle utilisé")

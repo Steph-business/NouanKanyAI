@@ -164,11 +164,20 @@ class ModelManager:
         self.load_models()
         logger.info("[ModelManager] Rechargement effectué avec succès.")
 
-    def predict(self, input_data: Dict[str, Any]) -> PredictionResult:
+    def predict(
+        self,
+        input_data: Dict[str, Any],
+        history: Optional[List[Dict[str, Any]]] = None,
+        request_id: Optional[str] = None,
+        strict_bounds: bool = False,
+    ) -> PredictionResult:
         """
         Exécute la prévision de consommation énergétique à t+1.
 
         :param input_data: Dictionnaire des caractéristiques d'entrée.
+        :param history: Historique chronologique optionnel pour calcul précis des retards.
+        :param request_id: Identifiant unique optionnel de requête.
+        :param strict_bounds: Si True, applique une vérification stricte des plages.
         :return: Instance typée `PredictionResult`.
         :raises ModelNotLoadedError: Si les modèles ne sont pas encore chargés.
         """
@@ -177,13 +186,27 @@ class ModelManager:
             raise ModelNotLoadedError(
                 "Les modèles ML n'ont pas été chargés. Appelez 'load_models()' au préalable."
             )
-        return self._prediction_engine.predict_forecasting(input_data)
+        return self._prediction_engine.predict_forecasting(
+            raw_input=input_data,
+            history=history,
+            request_id=request_id,
+            strict_bounds=strict_bounds,
+        )
 
-    def detect_anomaly(self, input_data: Dict[str, Any]) -> AnomalyResult:
+    def detect_anomaly(
+        self,
+        input_data: Dict[str, Any],
+        previous_power: Optional[float] = None,
+        request_id: Optional[str] = None,
+        strict_bounds: bool = False,
+    ) -> AnomalyResult:
         """
         Exécute l'analyse d'anomalie sur des données d'observation.
 
         :param input_data: Dictionnaire des caractéristiques transmises.
+        :param previous_power: Puissance de l'itération précédente.
+        :param request_id: Identifiant unique optionnel de requête.
+        :param strict_bounds: Si True, applique une vérification stricte des plages.
         :return: Instance typée `AnomalyResult`.
         :raises ModelNotLoadedError: Si les modèles ne sont pas encore chargés.
         """
@@ -192,7 +215,12 @@ class ModelManager:
             raise ModelNotLoadedError(
                 "Les modèles ML n'ont pas été chargés. Appelez 'load_models()' au préalable."
             )
-        return self._prediction_engine.predict_anomaly(input_data)
+        return self._prediction_engine.predict_anomaly(
+            raw_input=input_data,
+            previous_power=previous_power,
+            request_id=request_id,
+            strict_bounds=strict_bounds,
+        )
 
     def get_model_info(self, model_name: str) -> ModelInfo:
         """

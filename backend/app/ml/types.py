@@ -2,7 +2,8 @@
 app/ml/types.py — Structures de données typées pour la couche ML de NouanKanyAI.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
+import uuid
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,11 +15,15 @@ class PredictionMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    request_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Identifiant unique universel (UUID) de la requête",
+    )
     execution_time_ms: float = Field(
         ..., description="Temps d'exécution de la prédiction en millisecondes"
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Horodatage UTC de la réalisation de la prédiction",
     )
     feature_count: int = Field(
@@ -36,6 +41,9 @@ class PredictionResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    request_id: str = Field(
+        ..., description="Identifiant unique (UUID) de la requête d'inférence"
+    )
     predicted_value: float = Field(
         ..., description="Valeur numérique prédite (ex: puissance en kW)"
     )
@@ -54,6 +62,9 @@ class AnomalyResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    request_id: str = Field(
+        ..., description="Identifiant unique (UUID) de la requête d'inférence"
+    )
     is_anomaly: bool = Field(
         ..., description="Vrai si l'observation est considérée comme anormale"
     )
@@ -65,6 +76,10 @@ class AnomalyResult(BaseModel):
     )
     confidence: float = Field(
         ..., description="Score de confiance de l'évaluation entre 0.0 et 1.0"
+    )
+    severity: str = Field(
+        default="normal",
+        description="Niveau de sévérité de l'anomalie (normal, faible, modérée, critique)",
     )
     model_name: str = Field(..., description="Nom du modèle ayant traité la requête")
     model_version: str = Field(..., description="Version du modèle ayant traité la requête")
