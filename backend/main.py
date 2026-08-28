@@ -145,40 +145,58 @@ app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 
 def _load_demo_machine_state() -> List[dict]:
+    """
+    Charge l'état statique de secours des machines industrielles.
+    Utilisé pour le mode démo local et lorsque Supabase est inaccessible.
+    """
     return load_demo_machine_state()
 
+
 def load_models():
+    """
+    Charge les anciens modèles sérialisés au format joblib (.pkl) pour assurer
+    la rétrocompatibilité avec les premiers endpoints de l'interface (`/api/predict` et `/api/anomaly`).
+    Les nouveaux endpoints versionnés sous `/api/v1/ml/` utilisent quant à eux le `ModelManager` moderne.
+    """
     global xgb_data, iso_data
     import warnings
     xgb_path = os.path.join(MODELS_DIR, 'xgboost_model.pkl')
     iso_path = os.path.join(MODELS_DIR, 'isolation_forest.pkl')
     
+    # 1. Chargement conditionnel du modèle XGBoost legacy
     if os.path.exists(xgb_path):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 xgb_data = joblib.load(xgb_path)
-            print("[OK] Modele XGBoost charge.")
+            print("[OK] Modèle XGBoost legacy chargé.")
         except Exception as exc:
-            print(f"[WARN] Impossible de charger XGBoost: {exc}")
+            print(f"[WARN] Impossible de charger XGBoost legacy: {exc}")
             xgb_data = None
     else:
-        print("[WARN] Modele XGBoost non trouve. Lancez d'abord train_xgboost.py")
+        print("[WARN] Modèle XGBoost legacy non trouvé. (Les nouveaux pipelines v2 restent actifs)")
     
+    # 2. Chargement conditionnel du modèle Isolation Forest legacy
     if os.path.exists(iso_path):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 iso_data = joblib.load(iso_path)
-            print("[OK] Modele Isolation Forest charge.")
+            print("[OK] Modèle Isolation Forest legacy chargé.")
         except Exception as exc:
-            print(f"[WARN] Impossible de charger Isolation Forest: {exc}")
+            print(f"[WARN] Impossible de charger Isolation Forest legacy: {exc}")
             iso_data = None
     else:
-        print("[WARN] Modele Isolation Forest non trouve. Lancez d'abord train_anomaly.py")
+        print("[WARN] Modèle Isolation Forest legacy non trouvé. (Les nouveaux pipelines v2 restent actifs)")
 
 
 def _load_cie_tariffs() -> Optional[dict]:
+    """
+    Lit et retourne la grille tarifaire officielle de la Compagnie Ivoirienne d'Électricité (CIE).
+    Permet de calculer les économies financières réelles en FCFA selon les tranches horaires.
+
+    :return: Dictionnaire des tarifs ou None si le fichier n'existe pas.
+    """
     tariffs_path = BASE_DIR / "data" / "cie_tariffs.json"
     if not tariffs_path.exists():
         return None
@@ -190,11 +208,20 @@ def _load_cie_tariffs() -> Optional[dict]:
 
 
 def _build_demo_facturation_payload() -> dict:
+    """
+    Construit un jeu de données de facturation et de partage de gains réaliste pour le mode démo.
+    Calcule la consommation globale, l'estimation des économies brutes (15%) et la part de gain (10%).
+
+    :return: Dictionnaire complet formaté pour les graphiques du dashboard financier.
+    """
     demo_machines = _load_demo_machine_state()
+    # Puissance cumulée totale en kW
     total_power_kw = sum(float(m.get("power_kw", 0)) for m in demo_machines)
+    # Estimation mensuelle basée sur un tarif moyen de 100 FCFA/kWh en continu (24h x 30j)
     estimated_monthly_cost = total_power_kw * 24 * 30 * 100
-    gross_savings = round(estimated_monthly_cost * 0.15, 2)
-    gain_share = round(gross_savings * 0.10, 2)
+    gross_savings = round(estimated_monthly_cost * 0.15, 2)  # 15% d'économies moyennes
+    gain_share = round(gross_savings * 0.10, 2)             # Modèle économique : 10% sur les économies réalisées
+
     return {
         "grossSavings": gross_savings,
         "gainShare": gain_share,
@@ -212,7 +239,19 @@ def _build_demo_facturation_payload() -> dict:
 
 
 def _build_fallback_predictions(machine_id: str, temp: float, vibration: float, pressure: float, hours_ahead: int) -> List[dict]:
+    """
+    Génère une projection mathématique de consommation énergétique de secours
+    lorsque les modèles d'IA ne sont pas disponibles sur le serveur.
+
+    :param machine_id: Identifiant de l'équipement.
+    :param temp: Température mesurée (°C).
+    :param vibration: Vibrations mesurées (Hz).
+    :param pressure: Pression mesurée (bar).
+    :param hours_ahead: Horizon de prévision en heures.
+    :return: Liste chronologique des prévisions heure par heure.
+    """
     hours = max(1, min(int(hours_ahead or 24), 12))
+    # Modèle linéaire d'approximation physique pondéré
     base = max(1.0, round(temp * 0.6 + vibration * 0.25 + pressure * 0.15, 2))
     predictions = []
     for hour in range(hours):
@@ -220,20 +259,32 @@ def _build_fallback_predictions(machine_id: str, temp: float, vibration: float, 
         predictions.append({
             "hour": hour,
             "predicted_kw": projected,
-            "cost_fcfa": round(projected * 65, 0),
+            "cost_fcfa": round(projected * 65, 0),  # Tarif estimé CIE ~65 FCFA/kWh
         })
     return predictions
 
 
 def _get_demo_machine(machine_id: str) -> Optional[dict]:
+    """
+    Recherche un équipement par son identifiant dans le jeu de données démo local.
+
+    :param machine_id: Identifiant unique (code interne) de la machine.
+    :return: Dictionnaire de la machine ou None si introuvable.
+    """
     for machine in _load_demo_machine_state():
         if str(machine.get("machine_id")) == machine_id:
             return machine
     return None
 
-# --- Modèles Pydantic ---
+
+# =====================================================================
+# Modèles Pydantic de Validation des Données de Requête (Interface Legacy)
+# =====================================================================
 
 class SensorReading(BaseModel):
+    """
+    Schéma représentant un relevé télémétrique instantané provenant d'un capteur IoT industriel.
+    """
     machine_id: str
     power_kw: float
     temperature_c: float
@@ -241,54 +292,85 @@ class SensorReading(BaseModel):
     pressure_bar: float
     priority: Optional[str] = 'haute'
 
+
 class PredictionRequest(BaseModel):
+    """
+    Schéma de demande de prévision de consommation énergétique multi-horizons.
+    """
     machine_id: str
     temperature_c: float
     vibration_hz: float
     pressure_bar: float
     hours_ahead: Optional[int] = 24
 
-# --- Routes ---
+# =====================================================================
+# Routes HTTP Principales de l'Application
+# =====================================================================
 
-@app.get("/")
+@app.get("/", tags=["Santé"])
 def root():
-    return {"message": "NouanKanyAI API is running", "version": "1.0.0"}
+    """
+    Endpoint racine de diagnostic rapide.
+    Permet aux load balancers et services de monitoring de valider la disponibilité du serveur HTTP.
+    """
+    return {"message": "NouanKanyAI API is running", "version": "2.0.0"}
 
-@app.get("/api/ml/health")
+
+@app.get("/api/ml/health", tags=["Machine Learning"])
 def ml_health():
-    """Retourne l'état de santé du sous-système ML."""
+    """
+    Retourne l'état de santé complet du sous-système ML (modèles en mémoire, registre, schémas).
+    Délègue la vérification au `ModelManager` unifié.
+    """
     if not ml_manager:
         return {"status": "unavailable", "models_loaded": False}
     return ml_manager.health_check().model_dump()
 
-@app.get("/api/ml/models")
+
+@app.get("/api/ml/models", tags=["Machine Learning"])
 def ml_models():
-    """Retourne la liste des modèles enregistrés dans le registre ML."""
+    """
+    Retourne la liste des modèles enregistrés dans le registre ML avec leurs versions et statuts.
+    """
     if not ml_manager:
         return []
     return [m.model_dump() for m in ml_manager.list_models()]
 
-@app.get("/api/ml/metrics")
+
+@app.get("/api/ml/metrics", tags=["Machine Learning"])
 def ml_metrics():
-    """Retourne les métriques de performance et de suivi ML."""
+    """
+    Fournit les métriques consolidées de performance (latences, débit) et de qualité d'entraînement.
+    """
     if not ml_manager:
         return {}
     return ml_manager.get_metrics()
 
-@app.get("/api/machines")
+
+@app.get("/api/machines", tags=["Appareils"])
 def get_machines():
-    """Retourne l'état de toutes les machines depuis Supabase ou en mode démo local."""
+    """
+    Récupère la liste de l'ensemble des équipements industriels avec leurs dernières mesures capteurs.
+    Effectue une jointure en mémoire entre les tables Supabase `machines`, `sensor_metrics` et `sites`.
+    Bascule de manière transparente sur le jeu de données démo si Supabase est déconnecté.
+
+    :return: Liste des dictionnaires détaillant l'état, la puissance (kW) et la localisation de chaque machine.
+    """
+    # 1. Fallback immédiat si Supabase n'est pas initialisé
     if not supabase:
         return _load_demo_machine_state()
 
     try:
+        # 2. Requête sur les machines enregistrées
         machines_res = supabase.table("machines").select("*").execute()
     except Exception as exc:
         print(f"[WARN] Inaccessible Supabase pour /api/machines: {exc}")
         return _load_demo_machine_state()
+
+    # 3. Récupération des dernières métriques de capteurs triées chronologiquement
     metrics_res = supabase.table("sensor_metrics").select("*").order("recorded_at", desc=True).execute()
     
-    # Récupérer les sites pour faire l'association
+    # 4. Association des sites industriels
     site_map = {}
     try:
         sites_res = supabase.table("sites").select("id, nom").execute()
@@ -297,11 +379,13 @@ def get_machines():
     except Exception as e:
         print(f"[WARN] Erreur récupération sites: {e}")
         
+    # Cartographie de la métrique la plus récente par équipement
     metrics_map = {}
     for m in metrics_res.data:
         if m["machine_id"] not in metrics_map:
             metrics_map[m["machine_id"]] = m
             
+    # 5. Fusion et standardisation du payload pour le frontend
     result = []
     for mach in machines_res.data:
         mach_id = mach["id"]
@@ -321,9 +405,13 @@ def get_machines():
         })
     return result
 
-@app.get("/api/facturation")
+
+@app.get("/api/facturation", tags=["Facturation"])
 def get_facturation():
-    """Retourne les données de facturation (calculées dynamiquement) et l'historique."""
+    """
+    Calcule dynamiquement la synthèse financière, le partage de gains (Gain-Share 10%)
+    et extrait l'historique des factures et pistes d'audit pour le module de facturation.
+    """
     tariffs_data = _load_cie_tariffs()
     if not supabase:
         payload = _build_demo_facturation_payload()
@@ -379,9 +467,13 @@ def get_facturation():
     except Exception:
         return _build_demo_facturation_payload()
 
-@app.get("/api/admin/metrics")
+
+@app.get("/api/admin/metrics", tags=["Administration"])
 def get_admin_metrics():
-    """Retourne les métriques globales de la plateforme (pour les admins)."""
+    """
+    Agrège les métriques globales de gestion multi-sites et multi-utilisateurs
+    pour la console d'administration centrale.
+    """
     if not supabase:
         demo_machines = _load_demo_machine_state()
         total_machines = len(demo_machines)
@@ -531,14 +623,49 @@ def get_admin_metrics():
     except Exception as e:
         return {"error": str(e)}
 
+# =====================================================================
+# Modèles Pydantic pour la Gestion des Entités et Actions
+# =====================================================================
+
 class NewSite(BaseModel):
+    """
+    Contrat de création d'un nouveau site industriel.
+    """
     nom: str
     localisation: str
     user_id: Optional[str] = None
 
-@app.post("/api/sites")
+
+class NewMachine(BaseModel):
+    """
+    Contrat de création ou d'enregistrement d'une nouvelle machine.
+    """
+    nom: str
+    power_kw: float
+    quantite: Optional[int] = 1
+    site_id: Optional[str] = None
+
+
+class ChatRequest(BaseModel):
+    """
+    Contrat de requête pour l'assistant conversationnel Copilot.
+    """
+    message: str
+    context: List[dict]
+
+
+# =====================================================================
+# Endpoints de Gestion des Sites et Machines (CRUD & Contrôle)
+# =====================================================================
+
+@app.post("/api/sites", tags=["Sites"])
 def add_site(site: NewSite):
-    """Ajoute un site dans Supabase (bypasse RLS) avec un fallback local sécurisé."""
+    """
+    Enregistre un nouveau site d'exploitation dans Supabase avec gestion du fallback local.
+
+    :param site: Informations du site (nom, localisation, user_id).
+    :return: Statut de création et identifiant du site.
+    """
     if not supabase:
         return {
             "status": "demo",
@@ -566,16 +693,17 @@ def add_site(site: NewSite):
         return {"status": "success", "site": res.data[0]}
     return {"error": "Failed to insert site"}
 
-class NewMachine(BaseModel):
-    nom: str
-    power_kw: float
-    quantite: Optional[int] = 1
-    site_id: Optional[str] = None
 
-@app.post("/api/machines")
+@app.post("/api/machines", tags=["Appareils"])
 def add_machine(machine: NewMachine):
-    """Ajoute des machines dans Supabase."""
-    if not supabase: return {"error": "Supabase not connected"}
+    """
+    Ajoute un ou plusieurs équipements dans Supabase et initialise leurs relevés de capteurs par défaut.
+
+    :param machine: Caractéristiques nominales et quantité d'équipements à provisionner.
+    :return: Liste des machines ajoutées avec leurs codes internes générés.
+    """
+    if not supabase:
+        return {"error": "Supabase not connected"}
     
     added_machines = []
     for _ in range(machine.quantite):
@@ -594,6 +722,7 @@ def add_machine(machine: NewMachine):
         
         if res.data:
             new_mach = res.data[0]
+            # Initialisation de la première télémétrie nominale
             supabase.table("sensor_metrics").insert({
                 "machine_id": new_mach["id"],
                 "power_kw": machine.power_kw,
@@ -614,9 +743,14 @@ def add_machine(machine: NewMachine):
             })
     return {"status": "success", "machines": added_machines}
 
-@app.post("/api/machines/{machine_id}/simulate")
+
+@app.post("/api/machines/{machine_id}/simulate", tags=["Appareils"])
 def simulate_anomaly(machine_id: str):
-    """Simule une alerte sur une machine spécifique avec fallback local."""
+    """
+    Injecte artificiellement une anomalie de surchauffe/vibration sur un équipement pour tester les alertes.
+
+    :param machine_id: Code interne de la machine cible.
+    """
     machine = _get_demo_machine(machine_id)
     if not machine:
         return {"status": "error", "message": "Machine non trouvée", "mode": "demo"}
@@ -638,8 +772,10 @@ def simulate_anomaly(machine_id: str):
         mach = res.data[0]
         mach_uuid = mach["id"]
 
+        # Mise à jour du statut en alerte
         supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
 
+        # Insertion de valeurs capteurs anormales
         supabase.table("sensor_metrics").insert({
             "machine_id": mach_uuid,
             "power_kw": mach["puissance_nominale_kw"] + 15.0,
@@ -652,9 +788,14 @@ def simulate_anomaly(machine_id: str):
     except Exception as exc:
         return {"status": "success", "machine_id": machine_id, "new_status": "alerte", "message": f"Simulation locale appliquée après erreur Supabase: {exc}", "mode": "demo"}
 
-@app.post("/api/machines/{machine_id}/toggle")
+
+@app.post("/api/machines/{machine_id}/toggle", tags=["Appareils"])
 def toggle_machine_status(machine_id: str):
-    """Bascule le statut d'une machine entre 'actif' et 'hors ligne'."""
+    """
+    Bascule l'état d'alimentation d'une machine entre 'actif' et 'hors ligne' (coupure ou redémarrage).
+
+    :param machine_id: Code interne de la machine.
+    """
     if not supabase:
         machine = _get_demo_machine(machine_id)
         if not machine:
@@ -679,9 +820,14 @@ def toggle_machine_status(machine_id: str):
     except Exception as exc:
         return {"status": "error", "message": str(exc), "mode": "demo"}
 
-@app.post("/api/machines/{machine_id}/eco")
+
+@app.post("/api/machines/{machine_id}/eco", tags=["Appareils"])
 def eco_machine_status(machine_id: str):
-    """Active le mode éco pour réduire la consommation sans éteindre la machine."""
+    """
+    Active le mode Éco sur un équipement (réduction de 35% de la puissance consommée).
+
+    :param machine_id: Code interne de la machine.
+    """
     if not supabase:
         machine = _get_demo_machine(machine_id)
         if not machine:
@@ -704,7 +850,8 @@ def eco_machine_status(machine_id: str):
 
         supabase.table("machines").update({"status": "eco"}).eq("id", mach_uuid).execute()
 
-        reduced_power = float(mach["puissance_nominale_kw"]) * 0.65  # Réduit de 35%
+        # Consommation bridée à 65% de la puissance nominale
+        reduced_power = float(mach["puissance_nominale_kw"]) * 0.65
 
         supabase.table("sensor_metrics").insert({
             "machine_id": mach_uuid,
@@ -718,9 +865,16 @@ def eco_machine_status(machine_id: str):
     except Exception as exc:
         return {"status": "error", "message": str(exc), "mode": "demo"}
 
-@app.post("/api/predict")
+
+# =====================================================================
+# Endpoints de Prédictions et Recommandations (Interface Legacy)
+# =====================================================================
+
+@app.post("/api/predict", tags=["Prédictions Legacy"])
 def predict(req: PredictionRequest):
-    """Prédit la consommation future d'une machine avec fallback robuste."""
+    """
+    Endpoint legacy de projection énergétique multi-horaires (utilisé par les vues legacy du frontend).
+    """
     if xgb_data is None or not isinstance(xgb_data, dict):
         predictions = _build_fallback_predictions(
             req.machine_id,
@@ -742,9 +896,12 @@ def predict(req: PredictionRequest):
     )
     return {"machine_id": req.machine_id, "predictions": predictions, "mode": "model"}
 
-@app.post("/api/anomaly")
+
+@app.post("/api/anomaly", tags=["Anomalies Legacy"])
 def check_anomaly(reading: SensorReading):
-    """Vérifie si une lecture de capteur est anormale."""
+    """
+    Endpoint legacy d'évaluation ponctuelle d'anomalie.
+    """
     if iso_data is None:
         return {
             "machine_id": reading.machine_id,
@@ -762,9 +919,13 @@ def check_anomaly(reading: SensorReading):
     result = detect_anomalies(iso_data, reading.model_dump())
     return {"machine_id": reading.machine_id, **result, "mode": "model"}
 
-@app.post("/api/recommend")
+
+@app.post("/api/recommend", tags=["Recommandations"])
 def get_recommendations(machines: List[SensorReading]):
-    """Génère des recommandations basées sur l'état actuel des machines."""
+    """
+    Génère des recommandations d'actions correctives prioritaires (délestage, mode éco, alerte)
+    en croisant les prévisions XGBoost et les scores Isolation Forest.
+    """
     if xgb_data is None or iso_data is None:
         fallback_recommendations = [
             {
@@ -788,12 +949,17 @@ def get_recommendations(machines: List[SensorReading]):
     recs = generate_recommendations(xgb_data, iso_data, machines_state)
     return {"recommendations": recs, "count": len(recs), "mode": "model"}
 
-class ChatRequest(BaseModel):
-    message: str
-    context: List[dict]
 
-@app.post("/api/chat")
+# =====================================================================
+# Assistant Copilot IA (Gemini 1.5 Flash API)
+# =====================================================================
+
+@app.post("/api/chat", tags=["Copilot"])
 def chat_with_gemini(req: ChatRequest):
+    """
+    Interagit avec l'API Gemini Flash de Google pour répondre aux questions des opérateurs
+    en injectant dynamiquement l'état temps réel de l'usine dans le contexte du prompt.
+    """
     import urllib.request
     import json
     import os
@@ -801,8 +967,12 @@ def chat_with_gemini(req: ChatRequest):
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_API_KEY}"
     
-    system_prompt = "Tu es NouanKanyAI Copilot, l'IA intelligente de l'application NouanKanyAI. Tu aides le responsable d'une usine ou d'un hotel a gerer sa consommation d'energie (electricite, machines). Reste professionnel, concis, et utilise le contexte fourni pour donner des reponses precises."
-    context_str = f"Voici l'etat actuel de nos machines : {req.context}"
+    system_prompt = (
+        "Tu es NouanKanyAI Copilot, l'IA intelligente de l'application NouanKanyAI. "
+        "Tu aides le responsable d'une usine ou d'un hôtel à gérer sa consommation d'énergie (électricité, machines). "
+        "Reste professionnel, concis, et utilise le contexte fourni pour donner des réponses précises."
+    )
+    context_str = f"Voici l'état actuel de nos machines : {req.context}"
     full_prompt = f"{system_prompt}\n\n{context_str}\n\nQuestion de l'utilisateur : {req.message}"
     
     payload = {
@@ -819,17 +989,30 @@ def chat_with_gemini(req: ChatRequest):
             text = result['candidates'][0]['content']['parts'][0]['text']
             return {"response": text}
     except Exception as e:
-        return {"response": f"Desole, je ne peux pas me connecter a l'IA pour le moment. Erreur: {str(e)}"}
+        return {"response": f"Désolé, je ne peux pas me connecter à l'IA pour le moment. Erreur: {str(e)}"}
 
-@app.post("/api/machines/{machine_id}/analyze-media")
+
+# =====================================================================
+# Analyse Visuelle Multimodale par IA (Images / Vidéos)
+# =====================================================================
+
+@app.post("/api/machines/{machine_id}/analyze-media", tags=["Vision IA"])
 async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
-    """Analyse un flux photo/vidéo d'une machine avec fallback robuste pour éviter les 500."""
+    """
+    Analyse un flux photo ou vidéo d'une machine par vision par ordinateur (Gemini 1.5 Flash).
+    Détecte automatiquement les anomalies physiques visibles (fumée, étincelles, fuite de liquide, surchauffe)
+    et déclenche une alerte d'urgence en cas de danger critique.
+
+    :param machine_id: Code interne de l'équipement analysé.
+    :param file: Fichier multimédia téléversé (PNG, JPEG, WebP, MP4, etc.).
+    """
     mime_type = (file.content_type or "").lower()
     filename_lower = (file.filename or "").lower()
 
     supported_image_types = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
     supported_video_types = {"video/mp4", "video/quicktime", "video/webm"}
 
+    # Validation du format de fichier
     if mime_type not in supported_image_types | supported_video_types and not any(filename_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".webm"]):
         return {
             "status": "UNSUPPORTED_FORMAT",
@@ -863,6 +1046,7 @@ async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
         mach = res.data[0]
         mach_uuid = mach["id"]
 
+        # Encodage Base64 du flux média pour l'API Gemini
         file_bytes = await file.read()
         base64_data = base64.b64encode(file_bytes).decode("utf-8")
 
@@ -910,6 +1094,7 @@ async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
                 elif line.startswith("DESCRIPTION:"):
                     description = line.replace("DESCRIPTION:", "").strip()
 
+            # En cas de menace confirmée, escalade automatique dans la base
             if "ALERTE" in status:
                 supabase.table("machines").update({"status": "alerte"}).eq("id", mach_uuid).execute()
                 supabase.table("sensor_metrics").insert({
@@ -939,6 +1124,10 @@ async def analyze_machine_media(machine_id: str, file: UploadFile = File(...)):
             "mode": "demo",
         }
 
+
+# =====================================================================
+# Démarrage Direct du Serveur ASGI Uvicorn
+# =====================================================================
 if __name__ == '__main__':
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
