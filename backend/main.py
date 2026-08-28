@@ -25,6 +25,9 @@ from supabase import create_client, Client
 
 from app.services.demo_data import load_demo_machine_state
 from app.interface.routers import machines, predictions, billing, recommendations, chat, admin
+from app.api.v1.ml.router import router as ml_router
+from app.api.handlers import register_ml_exception_handlers
+from app.api.deps import set_model_manager, get_model_manager
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -48,6 +51,14 @@ except Exception as e:
     print(f"[WARN] Supabase indisponible: {e}. Mode démo local activé")
     supabase = None
 
+ml_manager = None
+try:
+    from app.ml.manager import ModelManager
+    ml_manager = ModelManager()
+    set_model_manager(ml_manager)
+except Exception as e:
+    print(f"[WARN] Impossible d'initialiser ModelManager : {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if ml_manager:
@@ -58,18 +69,14 @@ async def lifespan(app: FastAPI):
     load_models()
     yield
 
-app = FastAPI(title="NouanKanyAI — Intelligence Artificielle", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="NouanKanyAI — Intelligence Artificielle & API ML",
+    version="2.0.0",
+    description="API REST de prévision énergétique, détection d'anomalies, observabilité et pilotage intelligent.",
+    lifespan=lifespan,
+)
 
-app.include_router(machines.router, prefix="/api/v1", tags=["machines"])
-app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
-app.include_router(billing.router, prefix="/api/v1", tags=["billing"])
-app.include_router(recommendations.router, prefix="/api/v1", tags=["recommendations"])
-app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
-app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
-
-# CORS pour que le frontend Next.js puisse appeler l'API.
-# En production, définir FRONTEND_URL (ex: https://nouankanyai-frontend.onrender.com).
-# ALLOWED_ORIGINS permet d'ajouter des origines supplémentaires séparées par des virgules.
+# CORS pour le frontend Next.js
 _default_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
@@ -88,16 +95,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Charger les modèles au démarrage
-xgb_data = None
-iso_data = None
+# Enregistrement des gestionnaires d'exceptions ML
+register_ml_exception_handlers(app)
 
-ml_manager = None
-try:
-    from app.ml.manager import ModelManager
-    ml_manager = ModelManager()
-except Exception as e:
-    print(f"[WARN] Impossible d'initialiser ModelManager : {e}")
+# Routers applicatifs et ML versionnés
+app.include_router(ml_router, prefix="/api/v1/ml")
+app.include_router(machines.router, prefix="/api/v1", tags=["machines"])
+app.include_router(predictions.router, prefix="/api/v1", tags=["predictions"])
+app.include_router(billing.router, prefix="/api/v1", tags=["billing"])
+app.include_router(recommendations.router, prefix="/api/v1", tags=["recommendations"])
+app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
+app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 
 def _load_demo_machine_state() -> List[dict]:
     return load_demo_machine_state()
