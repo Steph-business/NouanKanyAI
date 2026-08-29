@@ -20,6 +20,10 @@ frontend/out/
 # Logs and Audit
 *.log
 backend/artifacts/logs/*.jsonl
+.coverage
+.pytest_cache/
+htmlcov/
 
 # OS
 .DS_Store
+
