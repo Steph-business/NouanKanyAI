@@ -1,0 +1,27 @@
+{% if memory_context %}
+### [MÉMOIRE & HISTORIQUE DU SITE]
+{{ memory_context }}
+
+{% endif %}
+{% if energy_context %}
+### [CONTEXTE INDUSTRIEL TEMPS RÉEL]
+{{ energy_context }}
+
+{% endif %}
+{% if ml_context %}
+### [PRÉVISIONS ET DIAGNOSTIC IA (SOUS-SYSTÈME ML)]
+{% if ml_context.predicted_power_kw is defined and ml_context.predicted_power_kw is not none %}
+- **Prévision de consommation à t+1h (XGBoost)** : {{ ml_context.predicted_power_kw | round(2) }} {{ ml_context.forecasting_unit | default('kW') }}
+{% endif %}
+{% if ml_context.is_anomaly is defined and ml_context.is_anomaly is not none %}
+- **Statut d'Anomalie (Isolation Forest)** : {{ 'ANOMALIE DÉTECTÉE' if ml_context.is_anomaly else 'Fonctionnement Nominal' }} (Sévérité: {{ ml_context.anomaly_severity | default('normal') | upper }}, Probabilité: {{ (ml_context.anomaly_probability * 100) | round(1) if ml_context.anomaly_probability is defined else 'N/A' }}%)
+{% endif %}
+
+{% endif %}
+{% if rag_context %}
+### [DOCUMENTATION TECHNIQUE & PROCÉDURES]
+{{ rag_context }}
+
+{% endif %}
+### [REQUÊTE DE L'UTILISATEUR]
+{{ query }}

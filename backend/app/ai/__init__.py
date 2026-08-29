@@ -28,6 +28,7 @@ from app.ai.memory import (
     SummaryMemory,
 )
 from app.ai.prompt_builder import DEFAULT_SYSTEM_INSTRUCTION, PromptBuilder
+from app.ai.prompt_models import BuildingType, MLContext, PromptContext, UserRole
 from app.ai.rag import BaseRAGPipeline, IndustrialRAGPipeline
 from app.ai.retriever import BaseRetriever, InMemoryRetriever
 from app.ai.tools import BaseTool, CalculateEnergyCostTool, ToolRegistry
@@ -49,9 +50,13 @@ __all__ = [
     # Gateway & Assistant
     "AIGateway",
     "IndustrialCopilot",
-    # Prompts & Context
+    # Prompts, Context & Dynamic Models
     "PromptBuilder",
     "DEFAULT_SYSTEM_INSTRUCTION",
+    "PromptContext",
+    "UserRole",
+    "BuildingType",
+    "MLContext",
     "IndustrialContextBuilder",
     # Conversation & Sessions
     "ConversationManager",

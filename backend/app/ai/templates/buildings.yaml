@@ -1,0 +1,37 @@
+# Configuration des typologies de bâtiments pour NouanKanyAI
+
+building_types:
+  industry:
+    name: "Site Industriel / Usine de Production"
+    critical_equipments: ["Compresseurs d'air", "Presses hydrauliques", "Fours industriels", "Lignes de convoyage", "Broyeurs"]
+    peak_sensitivity: "TRÈS ÉLEVÉE (Pénalités sévères de dépassement de puissance souscrite)"
+    cie_contract_type: "Moyenne Tension (MT) / Tarif Industriel"
+    recommended_strategy: "Effacement séquentiel des charges non critiques entre 19h et 23h (CIE)"
+
+  hotel:
+    name: "Complexe Hôtelier / Resort"
+    critical_equipments: ["Chillers / Groupes d'eau glacée", "Buanderie industrielle", "Chambres froides cuisines", "Piscines / Pompes", "Éclairage d'ambiance"]
+    peak_sensitivity: "ÉLEVÉE (Conflit direct avec les heures d'occupation maximale des clients 19h-22h)"
+    cie_contract_type: "Moyenne Tension (MT) ou Basse Tension Pro"
+    recommended_strategy: "Prérecyclage thermique, limitation des cycles buanderie après 18h, modulation CTA"
+
+  restaurant:
+    name: "Restaurant / Métiers de Bouche"
+    critical_equipments: ["Chambres froides positives/négatives", "Fours mixtes / Friteuses", "Hottes d'extraction", "Lave-vaisselle professionnel"]
+    peak_sensitivity: "ÉLEVÉE (Pic de consommation synchronisé avec le service du soir 19h30-22h30)"
+    cie_contract_type: "Basse Tension Professionnelle"
+    recommended_strategy: "Extinction des hottes hors cuisson, pré-cuisson en heures pleines, maintien étanche du froid"
+
+  tertiaire:
+    name: "Bâtiment Tertiaire / Siège Social / Bureaux"
+    critical_equipments: ["Climatisation centrale (VRV/VRF)", "Ascenseurs", "Éclairage LED / Dalles", "Onduleurs & Data Center"]
+    peak_sensitivity: "MODÉRÉE (Pic principal diurne 13h-16h, effacement naturel en soirée)"
+    cie_contract_type: "Basse Tension ou Moyenne Tension"
+    recommended_strategy: "Coupure automatique de climatisation à partir de 18h30, extinction des étages inoccupés"
+
+  grand_menage:
+    name: "Grand Ménage / Villa Résidentielle"
+    critical_equipments: ["Split-systèmes de climatisation", "Chauffe-eau électrique", "Réfrigérateurs / Congélateurs", "Pompe surpresseur"]
+    peak_sensitivity: "MOYENNE (Impact direct sur la tranche tarifaire progressive CIE)"
+    cie_contract_type: "Basse Tension Résidentielle"
+    recommended_strategy: "Réglage climatiseurs à 24°C-25°C, extinction chauffe-eau en journée, évitement du tarif 400 kWh+"

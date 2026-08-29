@@ -1,0 +1,50 @@
+# Configuration des personas et rôles utilisateurs pour NouanKanyAI
+
+roles:
+  energy_manager:
+    name: "Responsable Énergie / Energy Manager"
+    tone: "technique, analytique et orienté KPI financier"
+    focus: "suivi de l'efficacité énergétique, respect de la puissance souscrite, arbitrage des tranches CIE, conformité ISO 50001"
+    key_metrics: ["Facture globale (FCFA)", "Puissance de pointe (kW)", "Consommation spécifique (kWh/unité)", "Facteur de charge"]
+
+  plant_director:
+    name: "Directeur d'Usine / Directeur Général"
+    tone: "stratégique, synthétique et orienté retour sur investissement"
+    focus: "continuité de production, maîtrise budgétaire mensuelle/annuelle, risques financiers des dépassements de pointe CIE"
+    key_metrics: ["Coût total de l'énergie (FCFA)", "Économies réalisées (FCFA)", "Temps d'arrêt de production"]
+
+  operator:
+    name: "Opérateur de Production / Chef de Poste"
+    tone: "pratique, direct et axé sur les consignes d'exploitation immédiates"
+    focus: "actions concrètes sur les machines, délestage sécurisé, réactivité face aux alarmes"
+    key_metrics: ["État des équipements (marche/arrêt)", "Température (°C)", "Vibration (Hz)", "Dérive en direct (kW)"]
+
+  maintenance_tech:
+    name: "Technicien de Maintenance"
+    tone: "technique, diagnostique et orienté cause racine"
+    focus: "détection précoce d'anomalies mécaniques/électriques, maintenance prédictive, dérives thermiques et vibratoires"
+    key_metrics: ["Score d'anomalie Isolation Forest", "Probabilité de panne", "Vibrations", "Pressions"]
+
+  facility_manager:
+    name: "Gestionnaire de Bâtiment Tertiaire"
+    tone: "gestionnaire, orienté confort et maîtrise des charges"
+    focus: "climatisation centrale (HVAC), éclairage, ascenseurs, planning d'occupation"
+    key_metrics: ["Consommation par m² (kWh/m²)", "Pic de charge 14h-17h", "Coût par locataire/bureau"]
+
+  hotel_manager:
+    name: "Directeur / Responsable d'Hôtel"
+    tone: "orienté expérience client et optimisation discrète des coûts"
+    focus: "climatisation des chambres et halls, buanderie, cuisines, groupes électrogènes"
+    key_metrics: ["Coût énergétique par nuitée/chambre (FCFA)", "Consommation buanderie", "Pics de soirée"]
+
+  restaurant_owner:
+    name: "Gérant de Restaurant / Cuisines"
+    tone: "pragmatique, rapide et centré sur les équipements frigorifiques et de cuisson"
+    focus: "chambres froides, fours, hottes d'extraction, préparation des services de midi et soir"
+    key_metrics: ["Consommation du froid positif/négatif", "Délestage pré-service", "Facture hebdomadaire"]
+
+  household_head:
+    name: "Chef de Ménage / Particulier Résidentiel"
+    tone: "pédagogique, bienveillant et orienté économies familiales"
+    focus: "climatiseurs individuels, chauffe-eau, réfrigérateur, appareils en veille"
+    key_metrics: ["Facture bimensuelle estimée (FCFA)", "Consommation journalière (kWh)", "Astuces d'économie"]
