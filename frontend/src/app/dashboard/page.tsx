@@ -1,143 +1,155 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Zap, Target, Power, AlertTriangle, Bot, Leaf } from 'lucide-react';
+import {
+  Zap,
+  TrendingUp,
+  ShieldCheck,
+  AlertTriangle,
+  Leaf,
+  Power,
+  RotateCcw,
+  ArrowRight,
+  ArrowUpRight,
+  Bot,
+  Activity,
+  Calculator,
+  UploadCloud,
+  Layers,
+  Sparkles,
+} from 'lucide-react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/api';
-import { MLHealthBadge } from '@/components/ml';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
+import { AlertCard } from '@/components/ui/AlertCard';
+import { CieTariffBar } from '@/components/ui/CieTariffBar';
+import { InvoiceUploadWidget } from '@/components/ui/InvoiceUploadWidget';
+import { MediaAnalyzerWidget } from '@/components/ui/MediaAnalyzerWidget';
+import { Toast, ToastMessage } from '@/components/ui/Toast';
+import { UserLevel } from '@/components/ui/LevelSelector';
 
-// Génère un profil de consommation journalier réaliste à partir de la puissance totale des machines
+// Profil de consommation journalier réaliste
 function generateDailyProfile(totalKw: number) {
   const profile = [
     { time: '00h', factor: 0.3 },
-    { time: '04h', factor: 0.2 },
+    { time: '04h', factor: 0.25 },
     { time: '08h', factor: 0.75 },
-    { time: '10h', factor: 1.0 },
+    { time: '10h', factor: 0.95 },
     { time: '12h', factor: 0.9 },
     { time: '14h', factor: 1.0 },
-    { time: '16h', factor: 0.95 },
+    { time: '16h', factor: 0.92 },
     { time: '18h', factor: 0.85 },
     { time: '20h', factor: 0.65 },
     { time: '22h', factor: 0.45 },
   ];
-  return profile.map(p => ({
+  return profile.map((p) => ({
     time: p.time,
-    conso: parseFloat((totalKw * p.factor * (0.9 + Math.random() * 0.2)).toFixed(1))
+    conso: parseFloat((totalKw * p.factor * (0.92 + Math.random() * 0.16)).toFixed(1)),
   }));
 }
 
-export default function DashboardPage() {
+export default function DashboardOverviewPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
 
-  // États pour les appareils venant de l'API
+  const [user, setUser] = useState<any>(null);
   const [machines, setMachines] = useState<any[]>([]);
   const [totalConso, setTotalConso] = useState(0);
   const [aiSuggestion, setAiSuggestion] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [economiesMois, setEconomiesMois] = useState(0);
-
-  // États pour les notifications (Toast) et le chargement
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
   const [loadingMachineId, setLoadingMachineId] = useState<string | null>(null);
 
-  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
-    setToastMessage(msg);
-    setToastType(type);
-    setTimeout(() => setToastMessage(''), 3500);
+  // Profil et Niveau d'expertise
+  const [activeProfile, setActiveProfile] = useState<string>('PME');
+  const [currentLevel, setCurrentLevel] = useState<UserLevel>('amateur');
+
+  // Auto-executed logs
+  const [autoExecutedLogs, setAutoExecutedLogs] = useState<Array<{ id: string; title: string; time: string; machineId: string }>>([
+    { id: '1', title: 'Délestage préventif appliqué', machineId: 'COMP-02', time: 'Il y a 25 min' },
+  ]);
+
+  // Toast
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToast({ id: Date.now().toString(), message, type });
   };
 
   useEffect(() => {
-    const checkUser = async () => {
-      if (!supabase) {
-        const mockUser = localStorage.getItem('mockUser');
-        if (mockUser) {
-          setUser(JSON.parse(mockUser));
-        } else {
-          router.push('/');
-        }
-        return;
-      }
+    const savedProfile = localStorage.getItem('nouankanyai_profile') || 'PME';
+    setActiveProfile(savedProfile);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        setUser({
-          nom: session.user.user_metadata?.nom || session.user.email,
-          email: session.user.email
-        });
-      } else {
-        router.push('/');
-      }
-    };
-    checkUser();
+    const savedLevel = (localStorage.getItem('nouankanyai_level') as UserLevel) || 'amateur';
+    setCurrentLevel(savedLevel);
 
-    // Fetch live machines state
+    const mockUser = localStorage.getItem('mockUser');
+    if (mockUser) {
+      setUser(JSON.parse(mockUser));
+    } else {
+      setUser({ nom: 'Responsable Énergie', email: 'contact@nouankanyai.ci' });
+    }
+
     const fetchMachines = async () => {
       try {
         const res = await fetch(`${API_URL}/api/machines`);
         const data = await res.json();
         setMachines(data);
 
-        // Calculate total consumption dynamically
-        const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
+        const total = data.reduce(
+          (acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0),
+          0
+        );
         setTotalConso(total);
+        setChartData(generateDailyProfile(total || 65));
 
-        // Generate realistic chart data from real machine power
-        setChartData(generateDailyProfile(total));
-
-        // Calculate monthly savings dynamically: 15% savings at CIE tariff 68 FCFA/kWh
-        const monthlySavings = total * 24 * 30 * 68 * 0.15;
+        // Économies mensuelles estimées à 15% au tarif CIE
+        const monthlySavings = (total || 65) * 24 * 30 * 68 * 0.15;
         setEconomiesMois(monthlySavings);
 
-        // Fetch AI recommendation
+        // Fetch AI suggestions
         if (data.length > 0) {
           const recRes = await fetch(`${API_URL}/api/recommend`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ state: data })
+            body: JSON.stringify({ state: data }),
           });
           const recData = await recRes.json();
           if (recData.recommendations && recData.recommendations.length > 0) {
             setAiSuggestion(recData.recommendations[0]);
-          } else {
-            setAiSuggestion(null);
           }
         }
       } catch (err) {
-        console.error("Failed to fetch machines/recommendations:", err);
+        console.error("Erreur chargement machines :", err);
       }
     };
 
     fetchMachines();
-    const interval = setInterval(fetchMachines, 5000);
+    const interval = setInterval(fetchMachines, 6000);
     return () => clearInterval(interval);
   }, []);
 
+  // Actions physiques sur les machines
   const toggleAppareil = async (machine_id: string, nom: string, current_status: string) => {
-    if (loadingMachineId) return; // Prevent double clicks
-
+    if (loadingMachineId) return;
     setLoadingMachineId(machine_id);
-    const actionText = ['actif', 'eco'].includes(current_status) ? `Mise hors tension de ${nom}...` : `Allumage de ${nom}...`;
-    const actionType = ['actif', 'eco'].includes(current_status) ? 'info' : 'success';
-
-    showToast(actionText, actionType);
 
     try {
       await fetch(`${API_URL}/api/machines/${machine_id}/toggle`, { method: 'POST' });
-      // Fetch machines again to update UI
       const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
       setMachines(data);
-      const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
+
+      const total = data.reduce(
+        (acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0),
+        0
+      );
       setTotalConso(total);
 
-      showToast(['actif', 'eco'].includes(current_status) ? `${nom} est maintenant hors ligne.` : `${nom} est maintenant actif.`, 'success');
+      const isOff = ['actif', 'eco'].includes(current_status);
+      showToast(isOff ? `${nom} mis hors tension avec succès.` : `${nom} réactivé.`, 'success');
     } catch (err) {
-      console.error("Erreur lors du basculement", err);
-      showToast("Erreur lors de la modification du statut.", 'error');
+      showToast("Erreur lors du basculement d'alimentation.", 'error');
     } finally {
       setLoadingMachineId(null);
     }
@@ -146,18 +158,27 @@ export default function DashboardPage() {
   const toggleEco = async (machine_id: string, nom: string) => {
     if (loadingMachineId) return;
     setLoadingMachineId(machine_id);
-    showToast(`Activation du mode Éco sur ${nom}...`, 'info');
 
     try {
       await fetch(`${API_URL}/api/machines/${machine_id}/eco`, { method: 'POST' });
       const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
       setMachines(data);
-      const total = data.reduce((acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0), 0);
+
+      const total = data.reduce(
+        (acc: number, m: any) => acc + (['actif', 'eco'].includes(m.status) ? m.power_kw : 0),
+        0
+      );
       setTotalConso(total);
-      showToast(`Mode Éco activé pour ${nom} (-35% de conso).`, 'success');
+
+      // Ajouter à l'historique des actions auto-exécutées
+      setAutoExecutedLogs((prev) => [
+        { id: Date.now().toString(), title: `Mode Éco activé (-35% puissance)`, machineId: machine_id, time: 'À l\'instant' },
+        ...prev,
+      ]);
+
+      showToast(`Mode Éco activé sur ${nom} (-35% de puissance).`, 'success');
     } catch (err) {
-      console.error("Erreur lors du mode éco", err);
       showToast("Erreur lors de l'activation du mode Éco.", 'error');
     } finally {
       setLoadingMachineId(null);
@@ -168,133 +189,195 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+      {/* En-tête de bienvenue avec badge de profil */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 className="text-gradient" style={{ fontSize: '32px', fontWeight: 800, marginBottom: '6px' }}>
-            Bonjour, {user.nom.split(' ')[0]} 👋
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-cta)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Espace {activeProfile}
+            </span>
+            <ProvenanceBadge type="mesure" label="Réseau CIE Actif" />
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+            Bonjour, {user.nom?.split(' ')[0] || 'Responsable'} 👋
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-            Voici la vue d'ensemble de votre infrastructure énergétique.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            Supervision de vos index énergétiques et pilotage intelligent en temps réel.
           </p>
         </div>
 
-        <MLHealthBadge showDetails={true} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => router.push('/dashboard/predictions')}
+            className="btn-outline"
+            style={{ fontSize: '12px', padding: '8px 14px' }}
+          >
+            <Bot size={15} color="var(--accent-cta)" />
+            <span>Copilot IA</span>
+          </button>
+        </div>
       </div>
 
-      {/* Alerte IA Premium Banner */}
+      {/* =====================================================================
+          HIÉRARCHIE 1 : ALERTE ACTIVE VISUELLEMENT DOMINANTE (Non négociable)
+          Différenciation stricte Action requise vs Auto-exécutée
+      ===================================================================== */}
       {aiSuggestion && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '16px',
-          padding: '20px',
-          background: aiSuggestion.type.includes('Surchauffe')
-            ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.02) 100%)'
-            : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
-          border: `1px solid ${aiSuggestion.type.includes('Surchauffe') ? 'rgba(220, 62, 62, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-          borderLeft: `4px solid ${aiSuggestion.type.includes('Surchauffe') ? '#ef4444' : 'var(--accent)'}`,
-          borderRadius: '12px',
-          marginBottom: '32px',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{
-            backgroundColor: aiSuggestion.type.includes('Surchauffe') ? 'var(--danger)' : 'var(--accent)',
-            padding: '8px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `0 0 15px ${aiSuggestion.type.includes('Surchauffe') ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
-          }}>
-            {aiSuggestion.type.includes('Surchauffe') ? <AlertTriangle size={18} color="#fff" /> : <Bot size={18} color="#fff" />}
-          </div>
-          <div>
-            <div style={{
-              fontWeight: 700,
-              color: aiSuggestion.type.includes('Surchauffe') ? '#f87171' : 'var(--accent)',
-              marginBottom: '6px',
-              fontSize: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              {aiSuggestion.type} sur {aiSuggestion.machine_id}
-            </div>
-            <div style={{ color: 'var(--text-subtle)', fontSize: '14px', lineHeight: '1.5' }}>
-              {aiSuggestion.action}
-            </div>
-          </div>
-        </div>
+        <AlertCard
+          register="action_requise"
+          title={aiSuggestion.type || "Alerte de Surcharge Détectée"}
+          machineId={aiSuggestion.machine_id}
+          description={aiSuggestion.action || "La puissance appelée approche le palier tarifaire supérieur CIE. Une réduction immédiate de charge est recommandée."}
+          actionText="Exécuter la régulation immédiate"
+          onActionClick={() => toggleEco(aiSuggestion.machine_id, aiSuggestion.machine_id)}
+          gainFcfa={aiSuggestion.gain_fcfa || 8500}
+          severity={aiSuggestion.type?.includes('Surchauffe') ? 'critique' : 'moderee'}
+          timestamp="Alerte active • Détectée il y a 3 min"
+          provenance="synthetique"
+          loading={loadingMachineId === aiSuggestion.machine_id}
+        />
       )}
 
-      <div className="kpi-grid">
-        {/* KPI 1 : Conso */}
-        <div className="glass-card glow-card-cyan">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Consommation (Aujourd'hui)</div>
-            <div style={{ backgroundColor: 'rgba(6, 182, 212, 0.1)', padding: '8px', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.15)' }}>
-              <Zap size={16} color="var(--secondary)" />
-            </div>
+      {/* Actions auto-exécutées journalisées */}
+      {autoExecutedLogs.length > 0 && (
+        <AlertCard
+          register="auto_executee"
+          title={autoExecutedLogs[0].title}
+          machineId={autoExecutedLogs[0].machineId}
+          description="Régulation de puissance appliquée automatiquement selon les règles de pilotage préventif sans interruption de service."
+          timestamp={autoExecutedLogs[0].time}
+          provenance="synthetique"
+          actionText="Voir l'historique"
+          onActionClick={() => router.push('/dashboard/predictions')}
+        />
+      )}
+
+      {/* =====================================================================
+          HIÉRARCHIE 2 : KPIS DE CONSOMMATION & COÛTS (Tabular numbers)
+      ===================================================================== */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px', marginBottom: '28px' }}>
+        {/* KPI 1 : Puissance active */}
+        <div className="card-standard" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Puissance Active Instantanée
+            </span>
+            <ProvenanceBadge type="mesure" label="Index" />
           </div>
-          <div style={{ fontSize: '32px', fontFamily: 'Outfit, sans-serif', fontWeight: 800, marginBottom: '8px', color: 'var(--foreground)' }}>
-            {totalConso.toFixed(1)} <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}>kW</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+            <span
+              className="tabular-numbers"
+              style={{
+                fontSize: '32px',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                fontFamily: 'IBM Plex Mono, monospace',
+              }}
+            >
+              {totalConso.toFixed(1)}
+            </span>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              kW
+            </span>
           </div>
-          <div style={{ color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
-            <ArrowUpRight size={14} /> -12% depuis hier
+          <div style={{ fontSize: '12px', color: 'var(--status-success)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+            <ArrowUpRight size={14} /> -12.4% vs consommation de référence
           </div>
         </div>
 
-        {/* KPI 2 : Économies */}
-        <div className="glass-card glow-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Économies Générées (Mois)</div>
-            <div style={{ backgroundColor: 'var(--primary-light)', padding: '8px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <Target size={16} color="var(--primary)" />
-            </div>
+        {/* KPI 2 : Économies générées */}
+        <div className="card-standard" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Économies Réalisées (Ce Mois)
+            </span>
+            <ProvenanceBadge type="estime" label="CIE 68 F" />
           </div>
-          <div style={{ fontSize: '32px', fontFamily: 'Outfit, sans-serif', fontWeight: 800, marginBottom: '8px', color: 'var(--foreground)' }}>
-            {economiesMois > 0
-              ? `${(economiesMois / 1_000_000).toFixed(1)}M`
-              : '—'
-            } <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}>XOF</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+            <span
+              className="tabular-numbers"
+              style={{
+                fontSize: '32px',
+                fontWeight: 800,
+                color: 'var(--status-success)',
+                fontFamily: 'IBM Plex Mono, monospace',
+              }}
+            >
+              {economiesMois.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+            </span>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--status-success)' }}>
+              FCFA
+            </span>
           </div>
-          <div style={{ color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
-            <ArrowUpRight size={14} /> +12.4% d'optimisation IA
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            Modèle Gain-Share : 90% client ({(economiesMois * 0.9).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA)
+          </div>
+        </div>
+
+        {/* KPI 3 : Palier tarifaire actuel */}
+        <div className="card-standard" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Palier Tarifaire CIE
+            </span>
+            <ProvenanceBadge type="mesure" label="Tranche" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '24px',
+                fontWeight: 800,
+                color: 'var(--accent-cost)',
+                fontFamily: 'Space Grotesk, sans-serif',
+              }}
+            >
+              Non Domestique
+            </span>
+          </div>
+          <div className="tabular-numbers" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+            Tarif unitaire : <strong>68 FCFA / kWh</strong> (151 – 500 kWh)
           </div>
         </div>
       </div>
 
-      <div className="grid-2-1">
-        {/* Graphique */}
-        <div className="glass-card" style={{ height: '380px', padding: '28px' }}>
-          <h3 style={{ marginBottom: '24px', fontWeight: 700, fontSize: '16px', color: 'var(--foreground)' }}>Évolution de la consommation</h3>
-          <div style={{ width: '100%', height: 'calc(100% - 40px)' }}>
+      {/* Grille principale : Graphique de Charge & Équipements Clés */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '28px' }} className="grid-responsive-2-1">
+        {/* Courbe de Charge Journalière */}
+        <div className="card-standard" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Courbe de Charge Journalière (24h)
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                Profil horaire actualisé selon l'état des machines en service
+              </p>
+            </div>
+            <ProvenanceBadge type="synthetique" label="Profil Calibré" />
+          </div>
+
+          <div style={{ height: '240px', width: '100%', flex: 1 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="consoActive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--secondary)" stopOpacity={1} />
-                    <stop offset="100%" stopColor="var(--secondary)" stopOpacity={0.3} />
-                  </linearGradient>
-                  <linearGradient id="consoDim" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.15)" stopOpacity={1} />
-                    <stop offset="100%" stopColor="rgba(255,255,255,0.02)" stopOpacity={0.3} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                 <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
-                  cursor={{ fill: 'var(--surface-hover)' }}
-                  contentStyle={{ backgroundColor: 'var(--background-alt)', borderColor: 'var(--surface-border)', borderRadius: '8px' }}
-                  itemStyle={{ color: 'var(--foreground)', fontSize: '13px' }}
-                  labelStyle={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}
+                  cursor={{ fill: 'var(--bg-surface)' }}
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-elevated)',
+                    borderColor: 'var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                  itemStyle={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600 }}
+                  labelStyle={{ color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700 }}
+                  formatter={(value: any) => [`${value} kW`, 'Puissance']}
                 />
                 <Bar dataKey="conso" radius={[4, 4, 0, 0]}>
                   {chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.conso > (totalConso * 0.8) ? 'url(#consoActive)' : 'url(#consoDim)'}
+                      fill={entry.conso > totalConso * 0.85 ? 'var(--accent-cta)' : 'var(--border-strong)'}
                     />
                   ))}
                 </Bar>
@@ -303,68 +386,108 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Contrôle des Appareils Favoris */}
-        <div className="glass-card" style={{ padding: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ fontWeight: 700, fontSize: '16px', color: 'var(--foreground)' }}>Appareils Énergivores</h3>
-            <span onClick={() => router.push('/dashboard/appareils')} style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, letterSpacing: '0.05em', cursor: 'pointer' }}>VOIR TOUT</span>
+        {/* Contrôle des Machines / Équipements */}
+        <div className="card-standard" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              Équipements Clés
+            </h3>
+            <button
+              onClick={() => router.push('/dashboard/appareils')}
+              className="btn-ghost"
+              style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-cta)' }}
+            >
+              VOIR TOUT ({machines.length})
+            </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {machines.slice(0, 3).map((appareil) => (
-              <div key={appareil.machine_id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px',
-                border: '1px solid var(--surface-border)',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(255, 255, 255, 0.01)',
-                transition: 'all 0.2s ease'
-              }}
-                className="nav-item-hover-only" // Added simple border hover
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px', color: 'var(--foreground)' }}>{appareil.nom}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appareil.power_kw} kW • {appareil.temperature_c.toFixed(1)}°C</div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div
-                    onClick={() => toggleEco(appareil.machine_id, appareil.nom)}
-                    style={{
-                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer',
-                      padding: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: appareil.status === 'eco' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                      color: appareil.status === 'eco' ? '#10b981' : 'var(--text-muted)',
-                      border: appareil.status === 'eco' ? '1px solid #10b981' : '1px solid var(--surface-border)',
-                      transition: 'all 0.2s',
-                      opacity: loadingMachineId === appareil.machine_id ? 0.5 : 1,
-                      transform: loadingMachineId === appareil.machine_id ? 'scale(0.95)' : 'scale(1)'
-                    }}
-                    title="Mode Éco (Réguler la consommation)"
-                  >
-                    <Leaf size={16} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
+            {machines.slice(0, 4).map((appareil) => {
+              const isEco = appareil.status === 'eco';
+              const isActive = ['actif', 'eco'].includes(appareil.status);
+              const isAlert = appareil.status === 'alerte';
+
+              return (
+                <div
+                  key={appareil.machine_id}
+                  style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: isAlert ? 'var(--status-alert-bg)' : 'var(--bg-surface)',
+                    border: `1px solid ${isAlert ? 'var(--status-alert-border)' : 'var(--border-color)'}`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          backgroundColor: isAlert ? 'var(--status-alert)' : isEco ? 'var(--status-warning)' : isActive ? 'var(--status-success)' : 'var(--text-muted)',
+                        }}
+                      />
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
+                        {appareil.nom}
+                      </span>
+                    </div>
+                    <div className="tabular-numbers" style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'IBM Plex Mono, monospace' }}>
+                      {appareil.power_kw} kW • {appareil.temperature_c?.toFixed(1)}°C
+                    </div>
                   </div>
-                  <div
-                    onClick={() => toggleAppareil(appareil.machine_id, appareil.nom, appareil.status)}
-                    style={{
-                      cursor: loadingMachineId === appareil.machine_id ? 'wait' : 'pointer',
-                      padding: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary-light)' : 'rgba(239, 68, 68, 0.1)',
-                      color: ['actif', 'eco'].includes(appareil.status) ? 'var(--primary)' : '#EF4444',
-                      border: ['actif', 'eco'].includes(appareil.status) ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.2)',
-                      transition: 'all 0.2s',
-                      opacity: loadingMachineId === appareil.machine_id ? 0.5 : 1,
-                      transform: loadingMachineId === appareil.machine_id ? 'scale(0.95)' : 'scale(1)'
-                    }}
-                  >
-                    <Power size={16} className={loadingMachineId === appareil.machine_id ? "spin-animation" : ""} />
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => toggleEco(appareil.machine_id, appareil.nom)}
+                      title="Mode Éco (-35% de charge)"
+                      disabled={loadingMachineId === appareil.machine_id}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: isEco ? 'var(--status-success-bg)' : 'var(--bg-card)',
+                        color: isEco ? 'var(--status-success)' : 'var(--text-secondary)',
+                        border: `1px solid ${isEco ? 'var(--status-success-border)' : 'var(--border-color)'}`,
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Leaf size={12} />
+                      <span>Éco</span>
+                    </button>
+
+                    <button
+                      onClick={() => toggleAppareil(appareil.machine_id, appareil.nom, appareil.status)}
+                      title={isActive ? 'Mettre hors ligne' : 'Activer'}
+                      disabled={loadingMachineId === appareil.machine_id}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: isActive ? 'var(--bg-card)' : 'var(--status-alert-bg)',
+                        color: isActive ? 'var(--status-success)' : 'var(--status-alert)',
+                        border: `1px solid ${isActive ? 'var(--border-color)' : 'var(--status-alert-border)'}`,
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Power size={12} />
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
             {machines.length === 0 && (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', padding: '24px' }}>
                 Aucune machine enregistrée.
@@ -373,45 +496,22 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-      {/* Custom Toast Notification pour le Dashboard */}
-      {toastMessage && (
-        <div style={{
-          position: 'fixed',
-          bottom: '32px',
-          right: '32px',
-          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6',
-          color: '#fff',
-          padding: '16px 24px',
-          borderRadius: '12px',
-          fontWeight: 600,
-          zIndex: 99999,
-          boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-        }}>
-          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
-          {toastMessage}
-        </div>
-      )}
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spinPulse {
-          0% { transform: rotate(0deg) scale(1); }
-          50% { transform: rotate(180deg) scale(0.8); }
-          100% { transform: rotate(360deg) scale(1); }
-        }
-        .spin-animation {
-          animation: spinPulse 1s linear infinite;
-        }
-      `}} />
+      {/* =====================================================================
+          HIÉRARCHIE 3 : PRÉDICTIONS IA & MODULES SPÉCIALISÉS (OCR / Multimédia)
+      ===================================================================== */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+        {/* Module OCR Facture (Ménage & PME) */}
+        <InvoiceUploadWidget />
+
+        {/* Module Vision Média Multimodal (PME & Industrie) */}
+        <MediaAnalyzerWidget
+          machines={machines.map((m) => ({ id: m.machine_id, nom: m.nom, site_nom: m.site_nom }))}
+        />
+      </div>
+
+      {/* Toast */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

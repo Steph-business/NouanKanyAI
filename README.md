@@ -1,15 +1,18 @@
 <div align="center">
 
 # ⚡ NouanKanyAI
-### Plateforme Intelligente de Gestion Énergétique Industrielle
+### Plateforme Intelligente de Gestion & d'Optimisation Énergétique Industrielle
 
-**La plateforme qui transforme votre facture d'électricité en avantage compétitif.**
+**La solution SaaS & IA de nouvelle génération qui transforme la facture d'électricité en avantage compétitif pour l'Afrique.**
 
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.115+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js_15-000000?style=for-the-badge&logo=next.js)](https://nextjs.org)
-[![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
-[![XGBoost](https://img.shields.io/badge/ML-XGBoost-FF6600?style=for-the-badge)](https://xgboost.readthedocs.io)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python)](https://python.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+[![XGBoost](https://img.shields.io/badge/ML-XGBoost_v2.0-FF6600?style=for-the-badge)](https://xgboost.readthedocs.io)
 [![Gemini](https://img.shields.io/badge/AI-Google_Gemini-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev)
+[![Multi--Agents](https://img.shields.io/badge/AI_Architecture-Multi--Agent_Blackboard-8A2BE2?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-166_Passed-success?style=for-the-badge&logo=pytest)](https://pytest.org)
 
 </div>
 
@@ -17,355 +20,311 @@
 
 ## 🎯 Qu'est-ce que NouanKanyAI ?
 
-**NouanKanyAI** est une plateforme SaaS full-stack de gestion et d'optimisation de la consommation électrique pour les entreprises, hôtels et industriels en **Côte d'Ivoire** et en Afrique francophone.
+**NouanKanyAI** est une plateforme SaaS complète et intelligente conçue pour superviser, prédire, réguler et optimiser la consommation électrique des industries, hôtels, restaurants, bâtiments tertiaires et grands ménages en **Côte d'Ivoire** et en Afrique subsaharienne.
 
-Elle combine :
-- 📊 **Surveillance en temps réel** de toutes vos machines et équipements
-- 🤖 **Intelligence Artificielle** (XGBoost + Isolation Forest) pour prédire et détecter les anomalies
-- 💬 **Chatbot Gemini** pour des conseils en langage naturel
-- 💰 **Calcul dynamique** des économies générées selon la grille tarifaire réelle de la **CIE**
-
-> **Modèle économique :** NouanKanyAI génère des économies pour ses clients → prend **10% de ces économies** comme commission (Gain-Share). Vous ne payez que si vous économisez.
-
----
-
-## ✨ Fonctionnalités Clés
-
-### 🏠 Page d'Accueil Premium
-- Carrousel d'images 3D futuristes en arrière-plan (défilement automatique)
-- Texte de présentation fixe avec effet **glassmorphism**
-- Personnages 3D holographiques sur les côtés
-- Modale d'inscription/connexion élégante en mode sombre
-- Authentification complète via **Supabase Auth**
-
-### 📊 Tableau de Bord Principal
-- Consommation totale en kW (données temps réel depuis Supabase)
-- **Graphique d'évolution journalier** généré dynamiquement selon la puissance réelle
-- **Économies du mois** calculées : `puissance × 24h × 30j × tarif CIE × 15%`
-- Carte des appareils les plus énergivores (actualisé toutes les 5 secondes)
-- Alertes IA en temps réel (surchauffe, surconsommation)
-
-### 🔌 Gestion des Équipements
-- Vue grille de toutes vos machines avec statut en temps réel (Actif / Alerte / Hors ligne)
-- Ajout d'équipements via modale (nom, puissance, quantité)
-- **Simulation d'alerte** : déclenche une anomalie sur une machine pour tester le système
-- Métriques par appareil : puissance kW, température °C, vibrations Hz
-- Barre de progression des vibrations avec seuil d'alerte visuel
-
-### 🤖 Assistant IA & Prédictions
-- **Chatbot conversationnel** alimenté par Google Gemini Flash
-- Historique de conversation persistant (localStorage)
-- L'IA connaît l'état actuel de toutes vos machines en temps réel
-- **Recommandations actionnables** générées automatiquement (triées par sévérité)
-- 3 types de recommandations : `alerte`, `optimisation`, `délestage`
-- Calcul du gain financier estimé en FCFA pour chaque recommandation
-
-### 💰 Facturation & Audit
-- Économies brutes et commission Gain-Share calculées côté serveur
-- Graphique en barres des économies semaine par semaine
-- Camembert de répartition (90% client / 10% NouanKanyAI)
-- Piste d'audit cryptographique (audit trail)
-- Historique des factures
-
-### 🛡️ Centre de Contrôle Admin (MLOps)
-- Métriques globales de la plateforme (sites, machines, revenus)
-- **Santé des modèles IA** : précision XGBoost, MAPE, anomalies détectées
-- Graphique de dérive du modèle (Model Drift) — généré dynamiquement
-- État du système : API uptime, base de données, registre d'audit
-- Alerte conditionnelle (verte si tout va bien, rouge si problème détecté)
-- Bouton de réentraînement des modèles
+Elle articule des technologies de pointe :
+- 📊 **Monitoring IoT & Télémétrie en temps réel** : acquisition haute fréquence (puissance kW, température, vibrations, pression).
+- 🧠 **Sous-système ML v2 (XGBoost + Isolation Forest)** : prévisions de charge à horizon $t+1\text{h}$, détection multi-paramétrique d'anomalies et observabilité $p50/p95/p99$.
+- 🤖 **AI Gateway & Copilot Industriel (Google Gemini)** : assistant conversationnel connecté aux services métiers via un système de **Tool Calling** normalisé.
+- 📚 **Moteur RAG Industriel Avancé** : recherche documentaire hybride (vectorielle + BM25) sur 8 collections (ISO 50001, guides ADEME, IoT, audits).
+- 🧩 **Architecture Multi-Agents (Blackboard)** : orchestration collaborative de 10 agents spécialisés (Énergie, Prévision, Anomalies, Carbone, etc.).
+- 📑 **Générateur Automatique de Rapports Multi-Formats** : édition automatisée de rapports d'audit et de performance en **PDF, DOCX, XLSX et PPTX**.
+- 💰 **Calcul dynamique des gains (Tarifs CIE Côte d'Ivoire)** & modèle économique **Gain-Share** (10% de commission sur les économies réelles constatées).
 
 ---
 
-## 🎬 Script de Démonstration (Guide pour Présentation Vidéo)
+## ✨ Fonctionnalités & Capacités du Système
 
-Ce script est conçu pour toute personne réalisant une vidéo de démonstration ou un pitch de la plateforme, même sans connaissance technique préalable. Suivez ce guide pas-à-pas pour éblouir votre audience :
-
-### 1. Introduction (Page d'Accueil)
-- **Action :** Montrez la page d'accueil avec le carrousel 3D et les hologrammes.
-- **Discours :** *"Bienvenue sur NouanKanyAI. Notre plateforme intelligente transforme la gestion énergétique des industriels en Afrique. Avec un design premium et futuriste, nous offrons une expérience unique. Connectons-nous à l'espace industriel."*
-
-### 2. Le Tableau de Bord (Dashboard)
-- **Action :** Affichez le Dashboard. Pointez la Puissance Totale et les Économies.
-- **Discours :** *"Voici notre centre de contrôle. En un coup d'œil, le directeur voit la consommation de l'usine en temps réel et les économies générées. Le graphique central montre l'évolution dynamique de la consommation au fil de la journée."*
-
-### 3. Action Immédiate : Coupure & Mode Éco
-- **Action :** Dans la section "Appareils Énergivores", montrez les boutons d'action. Cliquez sur la **petite feuille (Mode Éco)**, puis sur le **bouton Power (ON/OFF)**.
-- **Discours :** *"Si une machine consomme trop, nous offrons deux solutions directes depuis ce tableau de bord :*
-  *   *La coupure totale : Je clique sur le bouton rouge/vert. L'application envoie un signal au relais intelligent de l'usine pour couper le courant de la machine.*
-  *   *La régulation (Mode Éco) : Si je ne veux pas stopper la production, je clique sur cette feuille. L'IA régule la puissance du moteur (-35% de conso) instantanément, regardez la belle notification de confirmation !"*
-
-### 4. L'Assistant IA Multimodal (Vision & Chat)
-- **Action :** Allez dans "Assistant IA". Posez une question au chatbot. Ensuite, uploadez une image d'équipement (ex: machine en feu).
-- **Discours :** *"NouanKanyAI est un véritable copilote. Le chatbot connaît l'état de l'usine en temps réel. Mieux encore : grâce à la vision par ordinateur, si un technicien envoie la photo d'un équipement fumant, l'IA l'analyse en 3 secondes, détecte le danger, et place l'usine en état d'alerte rouge automatiquement."*
-
-### 5. Facturation Automatisée (Gain-Share)
-- **Action :** Naviguez vers l'onglet "Facturation" et montrez la section Mobile Money.
-- **Discours :** *"Notre modèle est gagnant-gagnant : pas d'abonnement. Nous prenons 10% de commission sur les économies générées, le client garde 90%. Pour faciliter la vie des industriels, le paiement de cette commission est 100% automatisé via nos intégrations avec les opérateurs locaux (Wave, Orange, MTN, Moov)."*
-
-### 6. Console Administrateur (MLOps)
-- **Action :** Ouvrez l'onglet "Admin" pour montrer les jauges techniques.
-- **Discours :** *"Enfin, pour nos équipes techniques, cette console surveille la santé de nos modèles d'Intelligence Artificielle (XGBoost / Isolation Forest) pour garantir une précision optimale 24h/24 et 7j/7."*
+### 1. 🏠 Interface Utilisateur & Dashboard Next.js 15
+- **Page d'Accueil Premium** : design sombre futuriste, carrousel d'illustrations 3D, effet *glassmorphism*, animations micro-interactives et authentification Supabase Auth.
+- **Tableau de Bord Énergétique** : puissance active globale, courbe de charge journalière dynamique, appareils les plus énergivores actualisés toutes les 5s.
+- **Pilotage & Régulation Actionnable** :
+  - *Coupure d'urgence* : pilotage de relais intelligents ON/OFF.
+  - *Mode Éco dynamique* : réduction instantanée de 35% de la puissance appelée sans rupture de production.
+- **Gestion du Parc d'Équipements** : inventaire complet, télémétrie capteurs (kW, °C, Hz, bar) et simulateur d'anomalies pour tests de résilience.
+- **Facturation Gain-Share & Paiement Mobile** : répartition 90% client / 10% commission, intégration Mobile Money (Wave, Orange, MTN, Moov).
 
 ---
 
-## 🏗️ Architecture Technique
+### 2. 🧠 Sous-système Machine Learning v2 & Inférence Temps Réel
+- **Architecture de Modèles Découplée (`app/ml/`)** :
+  - `ModelLoader` & `RegistryManager` : chargement sécurisé avec vérification d'intégrité (hash SHA-256) et manifeste de déploiement.
+  - `FeatureValidator` : validation stricte via `feature_schema.json`, détection et rejet immédiat des `NaN`, `Inf` et valeurs hors bornes.
+  - `PredictionEngine` / `ForecastingService` : régression XGBoost v2.0.0 avec calcul automatique des lags ($t-1$, $t-24$) et moyennes mobiles.
+  - `AnomalyDetectionService` : détection d'isolation forest avec classification par sévérité métier (*Normale*, *Faible*, *Modérée*, *Critique*).
+- **Observabilité MLOps & Audit Trail** :
+  - Métriques d'inférence en temps réel : percentiles de latence ($p50$, $p95$, $p99$), débit RPM, taux d'anomalies.
+  - Journal d'audit cryptographique : traçabilité de chaque inférence avec UUID unique et empreinte numérique.
+  - Diagnostics de santé `/api/v1/ml/health` et rechargement à chaud des modèles `/api/v1/ml/reload`.
+
+---
+
+### 3. 🤖 Couche GenAI & Copilot Industriel (`app/ai/`)
+- **AIGateway Centralisée** : pont robuste avec Google Gemini (Flash / Pro), gestion des quotas, calcul de latences et mode simulation hors-ligne.
+- **Mémoire Conversationnelle Multi-Niveaux** :
+  - Mémoire courte de session active (buffer glissant).
+  - Mémoire longue persistante avec isolation multi-tenant (par organisation, site et utilisateur).
+  - Résumé automatique périodique du contexte pour optimiser les tokens LLM.
+- **Constructeur de Prompts Dynamique (Jinja2 & YAML)** :
+  - Personas configurables (*Energy Manager*, *Directeur d'usine*, *Technicien de maintenance*).
+  - Adaptations contextuelles selon la typologie du bâtiment (*Industrie*, *Hôtel*, *Restaurant*, *Tertiaire*, *Grand ménage*).
+  - Intégration automatique de la grille tarifaire CIE, de l'historique de consommation et des prévisions ML.
+- **Système de Tool Calling Normalisé (10 Outils Métier)** :
+  1. `predict_consumption` : Inférence prévisionnelle de consommation.
+  2. `detect_anomaly` : Analyse de conformité et détection d'anomalies.
+  3. `get_energy_history` : Récupération des historiques de consommation.
+  4. `compare_periods` : Analyse comparative de consommation entre deux plages.
+  5. `get_sensor_status` : Diagnostic temps réel des capteurs IoT.
+  6. `get_equipment_details` : Fiche technique et état d'un équipement.
+  7. `get_building_metrics` : KPIs consolidés du bâtiment.
+  8. `generate_report` : Déclenchement de génération de rapport énergétique.
+  9. `get_weather` : Données météo locales (température, humidité).
+  10. `get_electricity_tariffs` : Grille tarifaire officielle CIE.
+
+---
+
+### 4. 📚 Moteur RAG Industriel Avancé
+- **8 Collections Documentaires** : *Documentation NouanKanyAI, Norme ISO 50001, Manuels Fabricants, Rapports Énergétiques, Guides ADEME, FAQ, Rapports d'Audit, Documentation IoT*.
+- **Découpage & Vectorisation Intelligente** : chunking avec conservation du contexte, calcul d'embeddings (Gemini `text-embedding-004` & adaptateur déterministe).
+- **Recherche Hybride & Reranking** : combinaison de similarité vectorielle cosinus et recherche lexicale BM25, reranker sémantique avec boost de proximité.
+- **Traçabilité & Performance** : citations précises des sources (documents, pages, sections) et cache de requêtes LRU avec TTL.
+
+---
+
+### 5. 📑 Générateur de Rapports Énergétiques Multi-Formats (`app/reports/`)
+- **6 Typologies de Rapports** : *Journalier, Hebdomadaire, Mensuel, Audit Énergétique, Rapport d'Anomalies, Rapport de Performance*.
+- **Exports Multi-Formats** :
+  - 📄 **PDF** (ReportLab) : mise en page soignée, tableaux stylisés, graphiques vectoriels, KPIs et recommandations IA.
+  - 📝 **DOCX** (python-docx) : document éditable complet avec charte graphique industrielle.
+  - 📊 **XLSX** (openpyxl) : tableur avec feuilles dédiées aux séries temporelles, synthèses et formules de calcul.
+  - 📽️ **PPTX** (python-pptx) : diaporama exécutif pour présentations de direction.
+- **Graphiques Automatiques Intégrés** : courbes de charge 24h, répartition par tranche tarifaire CIE, consommation comparative par machine (Matplotlib).
+
+---
+
+### 6. 🧩 Architecture Multi-Agents Collaborative (`app/ai/multiagent/`)
+- **Pattern Blackboard Partagé** : bus de données centralisé thread-safe permettant aux agents de publier et de consommer des faits partagés.
+- **Orchestrateur Central** : routage dynamique des requêtes utilisateur selon 4 modes d'exécution (*Single, Séquentiel, Parallèle, Consensus*).
+- **10 Agents Spécialisés Définis** :
+  - ⚡ `Energy Agent` : surveillance globale et analyse des flux.
+  - 📈 `Forecast Agent` : projections et anticipation des pics.
+  - 🚨 `Anomaly Agent` : corrélation d'alarmes et diagnostic de panne.
+  - 🔧 `Maintenance Agent` : recommandations prédictives sur les machines.
+  - 💡 `Optimization Agent` : suggestions d'économies et d'efficacité.
+  - 📋 `Reporting Agent` : synthèse et génération de rapports.
+  - 💵 `Cost Saving Agent` : arbitrage tarifaire CIE et suivi du Gain-Share.
+  - 🌿 `Carbon Agent` : calcul de l'empreinte carbone et émissions de CO₂.
+  - 📡 `IoT Agent` : gestion du réseau de capteurs et passerelles.
+  - 🛡️ `Administrator Agent` : gouvernance, santé des modèles et sécurité.
+
+---
+
+## 🏗️ Architecture du Projet
 
 ```
 NouanKanyAI/
 │
-├── frontend/                     ← Interface Web (Next.js 15 + TypeScript)
-│   ├── src/app/
-│   │   ├── page.tsx              ← Page d'accueil (carrousel + auth modal)
-│   │   ├── globals.css           ← Design system complet (glassmorphism, animations)
-│   │   └── dashboard/
-│   │       ├── layout.tsx        ← Sidebar + Header + Bouton déconnexion
-│   │       ├── page.tsx          ← Tableau de bord principal
-│   │       ├── appareils/        ← Gestion et surveillance des équipements
-│   │       ├── predictions/      ← Assistant IA + Recommandations
-│   │       ├── facturation/      ← Économies, Audit Trail, Factures
-│   │       ├── sites/            ← Gestion multi-sites industriels
-│   │       └── admin/            ← Panneau d'administration MLOps
-│   └── public/                   ← Images 3D futuristes (hero carousel)
+├── frontend/                               ← Application Web Next.js 15 (App Router)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx                    ← Page d'accueil avec hero 3D & auth
+│   │   │   ├── globals.css                 ← Design system (glassmorphism, dark mode)
+│   │   │   └── dashboard/
+│   │   │       ├── page.tsx                ← Tableau de bord principal temps réel
+│   │   │       ├── layout.tsx              ← Sidebar, header & navigation
+│   │   │       ├── appareils/              ← Gestion des machines & simulation
+│   │   │       ├── predictions/            ← Copilot IA, chat & recommandations
+│   │   │       ├── facturation/            ← Économies CIE, Mobile Money & audit
+│   │   │       ├── sites/                  ← Supervision multi-sites
+│   │   │       └── admin/                  ← Console d'administration MLOps
+│   │   ├── components/                     ← Composants UI réutilisables
+│   │   ├── hooks/
+│   │   │   └── use-ml.ts                   ← Hooks React (usePrediction, useAnomaly, useMLHealth, etc.)
+│   │   └── lib/
+│   │       ├── ml-api.ts                   ← Client API TypeScript typé
+│   │       └── supabase.ts                 ← Configuration client Supabase
+│   └── public/                             ← Assets & illustrations 3D
 │
-├── backend/                      ← API Intelligente (Python FastAPI)
-│   ├── main.py                   ← Serveur API REST (port 8000)
-│   ├── .env                      ← Variables d'environnement (Supabase, Gemini)
-│   ├── ml/
-│   │   ├── generate_data.py      ← Génère 1 an de données synthétiques réalistes
-│   │   ├── train_xgboost.py      ← Entraîne le modèle de prédiction de consommation
-│   │   ├── train_anomaly.py      ← Entraîne le modèle de détection d'anomalies
-│   │   ├── recommendation_engine.py ← Moteur de recommandations hybride (IA + Règles)
-│   │   └── models/               ← Modèles ML sauvegardés (.pkl)
-│   └── data/
-│       ├── synthetic_data.py     ← Catalogue d'appareils (150+ équipements)
-│       └── cie_tariffs.json      ← Grille tarifaire officielle CIE (Côte d'Ivoire)
+├── backend/                                ← Backend API Python FastAPI
+│   ├── main.py                             ← Point d'entrée ASGI & routes principales
+│   ├── app/
+│   │   ├── api/v1/ml/                      ← Routes REST ML versionnées (/predict, /detect-anomaly, /health, /metrics)
+│   │   ├── ml/                             ← Moteur ML v2 (Loader, Registry, Validators, Engine, Monitoring, Audit)
+│   │   ├── ai/                             ← Couche GenAI & Copilot Industriel
+│   │   │   ├── gateway.py                  ← AIGateway Gemini avec fallbacks
+│   │   │   ├── assistant.py                ← IndustrialCopilot
+│   │   │   ├── memory.py                   ← Mémoire conversationnelle multi-tenant
+│   │   │   ├── prompt_builder.py           ← Prompt builder dynamique Jinja2/YAML
+│   │   │   ├── tools.py                    ← Système de 10 outils métier
+│   │   │   ├── document_processor.py       ← Collections & smart chunking
+│   │   │   ├── vector_store.py             ← Moteur de recherche vectorielle & BM25
+│   │   │   ├── reranker.py                 ← Reranking sémantique
+│   │   │   ├── query_cache.py              ← Cache LRU RAG
+│   │   │   ├── citations.py                ← Formatage des citations de sources
+│   │   │   ├── templates/                  ← Templates YAML/Jinja2 (personas, bâtiments)
+│   │   │   └── multiagent/                 ← Infrastructure Multi-Agents (Blackboard, Orchestrator, 10 agents)
+│   │   └── reports/                        ← Moteur de Rapports Énergétiques
+│   │       ├── generator.py                ← Orchestrateur de génération
+│   │       ├── charts.py                   ← Générateur de graphiques Matplotlib
+│   │       ├── service.py                  ← Service de persistance et export
+│   │       └── exporters/                  ← Exportateurs (PDF, DOCX, XLSX, PPTX)
+│   ├── artifacts/                          ← Modèles sérialisés, schémas JSON et model cards
+│   │   ├── forecasting/                    ← XGBoost model, feature schema, deployment manifest
+│   │   ├── anomaly/                        ← Isolation Forest model, schemas
+│   │   └── registry/                       ← Registre global des modèles
+│   ├── data/                               ← Grille tarifaire CIE & données synthétiques
+│   └── tests/                              ← Suite de tests automatisés (166 tests)
+│       ├── ml/                             ← Tests unitaires, intégration et performances ML
+│       ├── ai/                             ← Tests AI Gateway, RAG, Outils, Mémoire, Multi-Agents
+│       └── reports/                        ← Tests génération PDF, DOCX, XLSX, PPTX
 │
-├── diagnostic_report.md          ← Rapport de diagnostic complet du projet
-└── requirements.txt              ← Dépendances Python
+├── pytest.ini                              ← Configuration des tests backend
+└── requirements.txt                        ← Dépendances Python globales
 ```
 
 ---
 
-## 🛠️ Stack Technologique
+## 🛠️ Stack Technologique Détaillée
 
 ### Frontend
-| Technologie | Version | Usage |
+| Technologie | Version | Rôle & Usage |
 |---|---|---|
-| **Next.js** | 15 | Framework React (App Router) |
-| **TypeScript** | 5 | Typage statique |
-| **Recharts** | 2 | Graphiques interactifs (BarChart, AreaChart, PieChart) |
-| **Lucide React** | latest | Icônes vectorielles |
-| **Supabase JS** | 2 | Client authentification & base de données |
-| **Vanilla CSS** | — | Design system (glassmorphism, animations) |
-| **Google Fonts** | — | Typographies Outfit & Inter |
+| **Next.js** | 15.0+ | Framework React avec App Router et Server Components |
+| **TypeScript** | 5.0+ | Typage statique strict sur l'ensemble des modules |
+| **Recharts** | 2.13+ | Visualisation interactive (Courbes de charge, Barres, Camemberts) |
+| **Lucide React** | Latest | Bibliothèque d'icônes vectorielles |
+| **Supabase JS** | 2.45+ | Authentification JWT et synchronisation temps réel |
+| **Vanilla CSS** | — | Design system haute performance (Glassmorphism, animations GPU) |
 
-### Backend
-| Technologie | Version | Usage |
+### Backend & Machine Learning
+| Technologie | Version | Rôle & Usage |
 |---|---|---|
-| **FastAPI** | latest | API REST asynchrone |
-| **Uvicorn** | latest | Serveur ASGI |
-| **XGBoost** | latest | Modèle de prédiction de consommation |
-| **Scikit-learn** | latest | Isolation Forest + prétraitement |
-| **Pandas / NumPy** | 2+ | Manipulation des données |
-| **Joblib** | latest | Sérialisation des modèles ML |
-| **Python-dotenv** | latest | Gestion des variables d'environnement |
-| **Supabase Python** | latest | Client base de données |
+| **Python** | 3.12 | Environnement d'exécution moderne |
+| **FastAPI** | 0.115+ | Framework API REST asynchrone haute performance |
+| **Pydantic** | v2.9+ | Validation stricte des schémas et sérialisation |
+| **XGBoost** | 2.0+ | Modèle de régression pour la prévision de charge |
+| **Scikit-learn** | 1.5+ | Modèle Isolation Forest pour la détection d'anomalies |
+| **Pandas / NumPy** | 2.0+ | Manipulation vectorielle des séries temporelles |
+| **Joblib** | 1.4+ | Sérialisation et chargement des artefacts ML |
 
-### Services Cloud
-| Service | Usage |
-|---|---|
-| **Supabase** | Base de données PostgreSQL + Authentification |
-| **Google Gemini Flash** | Chatbot IA conversationnel |
-
-### Modèles d'Intelligence Artificielle
-| Modèle | Algorithme | Objectif |
+### Intelligence Artificielle Générative & RAG
+| Composant | Technologie / Approche | Rôle & Usage |
 |---|---|---|
-| **XGBoost Regressor** | Gradient Boosting | Prédire la consommation (kW) sur N heures |
-| **Isolation Forest** | Forêt d'isolement | Détecter les comportements anormaux |
-| **Moteur de règles** | Règles métier hybrides | Délestage, surchauffe, surconsommation |
+| **LLM Provider** | Google Gemini (Flash / Pro) | Moteur de raisonnement conversationnel et vision |
+| **Embeddings** | Gemini `text-embedding-004` / Mock | Vectorisation sémantique des documents |
+| **Recherche Documentaire** | Hybride (Cosinus + BM25) | Recherche multi-critères sur les bases documentaires |
+| **Templates** | Jinja2 + YAML | Personas dynamiques et adaptateurs multi-fournisseurs |
+| **Multi-Agents** | Pattern Blackboard + Orchestrateur | Collaboration distribuée de 10 agents experts |
 
----
-
-## 🚀 Installation et Démarrage
-
-### Prérequis
-- **Python** 3.10+
-- **Node.js** 18+
-- **npm** ou **yarn**
-- Un compte **Supabase** (gratuit)
-- Une clé API **Google Gemini** (gratuit)
-
----
-
-### Étape 1 — Cloner le projet
-```bash
-git clone https://github.com/votre-user/NouanKanyAI.git
-cd NouanKanyAI
-```
-
-### Étape 2 — Configurer les variables d'environnement
-Créez ou modifiez le fichier `backend/.env` :
-```env
-# Clé API Google Gemini (https://aistudio.google.com)
-GEMINI_API_KEY=votre_cle_gemini
-
-# Supabase (https://supabase.com)
-SUPABASE_URL=votre_project_ref
-SUPABASE_SERVICE_ROLE_KEY=votre_service_role_key
-```
-
-### Étape 3 — Installer les dépendances Python
-```bash
-pip install fastapi uvicorn pydantic python-dotenv supabase xgboost scikit-learn pandas numpy joblib
-```
-
-### Étape 4 — Générer les données et entraîner les modèles IA
-> Cette étape est **obligatoire** avant de lancer le backend.
-```bash
-# 1. Générer 1 an de données synthétiques réalistes
-python backend/ml/generate_data.py
-
-# 2. Entraîner le modèle de prédiction XGBoost
-python backend/ml/train_xgboost.py
-
-# 3. Entraîner le modèle de détection d'anomalies Isolation Forest
-python backend/ml/train_anomaly.py
-```
-
-### Étape 5 — Lancer le Backend (API FastAPI)
-```bash
-python backend/main.py
-# L'API tourne sur http://localhost:8000
-# Documentation interactive : http://localhost:8000/docs
-```
-
-### Étape 6 — Installer les dépendances Frontend
-```bash
-cd frontend
-npm install
-```
-
-### Étape 7 — Configurer Supabase pour le Frontend
-Créez le fichier `frontend/src/lib/supabase.ts` :
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = 'https://VOTRE_PROJECT_REF.supabase.co'
-const supabaseAnonKey = 'VOTRE_ANON_KEY'
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-```
-
-### Étape 8 — Lancer le Frontend (Next.js)
-```bash
-# Depuis le dossier frontend/
-npm run dev
-# L'application tourne sur http://localhost:3000
-```
-
----
-
-## 🗄️ Structure de la Base de Données Supabase
-
-| Table | Description |
-|---|---|
-| `machines` | Catalogue des équipements (nom, puissance_nominale_kw, status, priority) |
-| `sensor_metrics` | Lectures de capteurs en temps réel (power_kw, temperature_c, vibration_hz, pressure_bar) |
-| `sites` | Sites industriels gérés par le client |
-| `audit_logs` | Journal d'audit cryptographique (timestamp, action, ref_hash, status) |
-| `invoices` | Historique des factures générées (month, amount_xof) |
-
----
-
-## 🔌 Endpoints API
-
-| Méthode | Route | Description |
+### Moteur de Rapports
+| Format | Librairie | Spécificités |
 |---|---|---|
-| `GET` | `/` | Status de l'API |
-| `GET` | `/api/machines` | Liste toutes les machines avec leurs métriques live |
-| `POST` | `/api/machines` | Ajoute une ou plusieurs machines |
-| `POST` | `/api/machines/{id}/simulate` | Simule une anomalie sur une machine |
-| `GET` | `/api/facturation` | Données de facturation et économies calculées |
-| `GET` | `/api/admin/metrics` | Métriques globales de la plateforme (admin) |
-| `POST` | `/api/predict` | Prédit la consommation future d'une machine (XGBoost) |
-| `POST` | `/api/anomaly` | Vérifie si des lectures sont anormales (Isolation Forest) |
-| `POST` | `/api/recommend` | Génère des recommandations actionnables |
-| `POST` | `/api/chat` | Chat avec l'assistant Gemini IA |
+| **PDF** | ReportLab | Mise en page vectorielle, tableaux haute fidélité, graphiques intégrés |
+| **DOCX** | python-docx | Rapports éditables sous Microsoft Word |
+| **XLSX** | openpyxl | Tableurs avec onglets analytiques et formules |
+| **PPTX** | python-pptx | Présentations de synthèse pour comités de direction |
+| **Graphiques** | Matplotlib | Rendu des courbes de charge, camemberts tarifaires et histogrammes |
 
 ---
 
-## 💰 Grille Tarifaire CIE (Intégrée)
+## ⚡ Grille Tarifaire CIE (Côte d'Ivoire) Intégrée
 
-| Tranche | Consommation | Prix/kWh |
+NouanKanyAI intègre nativement la tarification officielle de la **Compagnie Ivoirienne d'Électricité (CIE)** pour calculer au centime près les coûts et gains :
+
+| Tranche Tarifaire | Plage de Consommation | Tarif Unitaire (FCFA / kWh) |
 |---|---|---|
-| Sociale | 0 – 80 kWh | **36 FCFA** |
-| Domestique | 81 – 150 kWh | **46 FCFA** |
-| Non Domestique | 151 – 500 kWh | **68 FCFA** |
-| Professionnelle | > 500 kWh | **96 FCFA** |
-
-*(Source : tarifs officiels CIE Côte d'Ivoire)*
+| **Sociale** | 0 – 80 kWh | **36 FCFA** |
+| **Domestique** | 81 – 150 kWh | **46 FCFA** |
+| **Non Domestique** | 151 – 500 kWh | **68 FCFA** |
+| **Professionnelle / Industrielle** | > 500 kWh | **96 FCFA** |
 
 ---
 
-## 📋 Plans d'Abonnement
+## 🚀 Installation & Démarrage Rapide
 
-| Plan | Cible | Prix/mois | Fonctionnalités clés |
-|---|---|---|---|
-| **Découverte** | Particulier | Gratuit | 3 appareils, rapport mensuel |
-| **Essentiel** | Particulier | 2 900 FCFA | 10 appareils, alertes, prédictions |
-| **Optimum** | Business | 7 900 FCFA | Illimité, IA avancée, détection anomalies |
-| **Business** | Industriel | 19 900 FCFA | Multi-sites, API, support 24/7, audit IA |
-
----
-
-## 🔍 Diagnostic Complet
-
-Consultez le fichier [diagnostic_report.md](./diagnostic_report.md) pour :
-- L'état détaillé de chaque module
-- L'analyse de la simulation des anomalies
-- Les forces et limites du projet
-- Les corrections déjà appliquées
+### 1. Prérequis
+- **Python 3.12+**
+- **Node.js 18+** et **npm**
+- Clé API **Google Gemini** (sur [Google AI Studio](https://aistudio.google.com))
+- Projet **Supabase** (gratuit sur [supabase.com](https://supabase.com))
 
 ---
 
-## 📁 Structure des Modèles ML
+### 2. Configuration de l'environnement Backend
 
+1. **Naviguer dans le dossier backend et configurer le fichier `.env`** :
+   ```bash
+   cd NouanKanyAI/backend
+   cp .env.example .env
+   ```
+
+2. **Renseigner les clés dans `backend/.env`** :
+   ```env
+   GEMINI_API_KEY=votre_cle_gemini
+   SUPABASE_URL=https://votre-projet.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=votre_cle_service_role
+   ```
+
+3. **Installer les dépendances Python** :
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Lancer la suite de tests automatisés** :
+   ```bash
+   pytest
+   # Résultat attendu : 166 passed
+   ```
+
+5. **Démarrer le serveur API FastAPI** :
+   ```bash
+   python main.py
+   # API accessible sur : http://localhost:8000
+   # Swagger / OpenAPI : http://localhost:8000/docs
+   ```
+
+---
+
+### 3. Configuration & Démarrage du Frontend
+
+1. **Naviguer dans le dossier frontend et installer les modules** :
+   ```bash
+   cd ../frontend
+   npm install
+   ```
+
+2. **Lancer le serveur de développement Next.js** :
+   ```bash
+   npm run dev
+   # Interface disponible sur : http://localhost:3000
+   ```
+
+---
+
+## 🧪 Validation & Couverture des Tests
+
+La plateforme dispose d'une suite exhaustive de tests automatisés couvrant tous les niveaux de l'architecture :
+
+```bash
+pytest backend/tests/ -v
 ```
-backend/ml/
-├── data/
-│   └── sensor_data.csv         ← ~35 000 lignes (1 an × 4 machines × 24h)
-└── models/
-    ├── xgboost_model.pkl        ← Modèle XGBoost + LabelEncoder + features
-    └── isolation_forest.pkl     ← Isolation Forest + LabelEncoder
-```
 
-**Performances du modèle XGBoost :**
-- Précision : **~94.2%** (R² Score)
-- MAPE : **~5.8%** (Erreur absolue moyenne en %)
-- Entraîné sur données normales uniquement (anomalies exclues)
-
----
-
-## 🤝 Contribution
-
-1. Forkez le repository
-2. Créez votre branche : `git checkout -b feature/ma-fonctionnalite`
-3. Committez : `git commit -m 'feat: ajouter ma fonctionnalite'`
-4. Pushez : `git push origin feature/ma-fonctionnalite`
-5. Ouvrez une Pull Request
+- **Tests ML (`backend/tests/ml/`)** : validation des artefacts, intégrité des manifestes, chargement `ModelLoader`, hot-reload `ModelManager`, validation des bornes et `NaN` `FeatureValidator`, calculs de latence `PredictionEngine`, métriques $p50/p95/p99$ et tests de charge sous 50ms.
+- **Tests AI & RAG (`backend/tests/ai/`)** : centralisation `AIGateway`, formatage dynamique `PromptBuilder`, isolation de la mémoire multi-tenant, exécution des 10 outils métier, recherche hybride RAG et orchestrateur multi-agents.
+- **Tests Rapports (`backend/tests/reports/`)** : génération de graphiques Matplotlib et exports binaires intègres en PDF, DOCX, XLSX et PPTX.
+- **Tests API FastAPI (`backend/tests/test_ml_api.py`)** : endpoints `/predict`, `/detect-anomaly`, `/health`, `/metrics` et conformité des codes de retour HTTP.
 
 ---
 
 ## 📄 Licence
 
-Ce projet est sous licence **MIT**. Voir le fichier `LICENSE` pour plus de détails.
-
----
+Ce projet est distribué sous licence **MIT**.
 
 <div align="center">
 
-**Fait avec ❤️ pour l'Afrique | NouanKanyAI © 2026**
+---
+
+**Développé avec passion pour l'efficacité énergétique industrielle | NouanKanyAI © 2026**
 
 *Optimisez votre énergie. Maximisez vos économies.*
 

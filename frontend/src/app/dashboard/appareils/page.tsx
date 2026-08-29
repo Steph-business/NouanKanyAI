@@ -1,344 +1,466 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Activity, AlertTriangle, ShieldCheck, Zap, RotateCcw, ActivitySquare, AlertOctagon } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import React, { useEffect, useState } from 'react';
+import {
+  Plug,
+  Plus,
+  Power,
+  Leaf,
+  Activity,
+  AlertTriangle,
+  RotateCcw,
+  Sparkles,
+  Search,
+  Filter,
+  CheckCircle2,
+  AlertOctagon,
+  Sliders,
+  Camera,
+} from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
+import { MediaAnalyzerWidget } from '@/components/ui/MediaAnalyzerWidget';
+import { Toast, ToastMessage } from '@/components/ui/Toast';
 
 export default function AppareilsPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const siteParam = searchParams.get('siteId');
-  const [appareils, setAppareils] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
-  const [totalPower, setTotalPower] = useState(0);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
+  const [machines, setMachines] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
-  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
-    setToastMessage(msg);
-    setToastType(type);
-    setTimeout(() => setToastMessage(''), 3500);
+  // Simulation modal
+  const [simulatingMachine, setSimulatingMachine] = useState<any | null>(null);
+  const [simTemp, setSimTemp] = useState<number>(30);
+  const [simPower, setSimPower] = useState<number>(50);
+  const [simVibration, setSimVibration] = useState<number>(2.0);
+  const [simPressure, setSimPressure] = useState<number>(1.2);
+
+  // Toast
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToast({ id: Date.now().toString(), message, type });
   };
-
-  const fetchSites = async () => {
-    try {
-      if (!supabase) {
-        setSites([]);
-        return;
-      }
-      const { data } = await supabase.from('sites').select('*');
-      if (data) setSites(data);
-    } catch (e) {
-      console.error("Erreur lors de la récupération des sites", e);
-    }
-  };
-
-  useEffect(() => {
-    fetchMachines();
-    fetchSites();
-    const interval = setInterval(fetchMachines, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (siteParam) {
-      setFilterSiteId(siteParam);
-    }
-  }, [siteParam]);
 
   const fetchMachines = async () => {
     try {
       const res = await fetch(`${API_URL}/api/machines`);
       const data = await res.json();
-
-      const mapped = data.map((m: any) => ({
-        id: m.machine_id,
-        nom: m.nom,
-        site_id: m.site_id,
-        site_nom: m.site_nom || 'Non associé',
-        status: m.status,
-        power: m.status === 'actif' ? `${m.power_kw} kW` : 'N/A',
-        power_raw: m.power_kw,
-        metric1Label: 'Température',
-        metric1Value: `${m.temperature_c.toFixed(1)}°C`,
-        metric1Color: m.temperature_c > 60 ? '#DC2626' : 'var(--foreground)',
-        metric2Label: 'Vibrations',
-        metric2Value: `${m.vibration_hz.toFixed(1)} Hz`,
-        metric2Progress: m.vibration_hz > 20 ? 100 : (m.vibration_hz / 20) * 100,
-        metric2Color: m.vibration_hz > 20 ? '#DC2626' : 'var(--primary)',
-        alertType: m.status === 'alerte' ? 'Intervention Requise' : '',
-        icon: m.status === 'alerte' ? <AlertOctagon size={24} color="#DC2626" /> : <ActivitySquare size={24} color="var(--primary)" />
-      }));
-      setAppareils(mapped);
-
-      const total = mapped.reduce((acc: number, curr: any) => acc + (curr.status === 'actif' ? curr.power_raw : 0), 0);
-      setTotalPower(total);
+      setMachines(data);
     } catch (err) {
-      console.error(err);
+      console.error("Erreur chargement machines :", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
-  const [analyzingMedia, setAnalyzingMedia] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [selectedMachineId, setSelectedMachineId] = useState('');
-  const [filterSiteId, setFilterSiteId] = useState('');
+  useEffect(() => {
+    fetchMachines();
+    const interval = setInterval(fetchMachines, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Pour la simulation d'alerte (déclenche une alerte sur une machine aléatoire/la première)
-  const triggerFakeAlert = async () => {
+  const handleToggle = async (machine_id: string, nom: string, current_status: string) => {
+    setLoadingActionId(machine_id);
     try {
-      if (appareils.length === 0) {
-        showToast("Ajoutez d'abord une machine avant de simuler une alerte.", 'error');
-        return;
-      }
-      // On prend la première machine saine
-      const target = appareils.find(a => a.status === 'actif') || appareils[0];
-      await fetch(`${API_URL}/api/machines/${target.id}/simulate`, { method: 'POST' });
-      fetchMachines();
+      await fetch(`${API_URL}/api/machines/${machine_id}/toggle`, { method: 'POST' });
+      await fetchMachines();
+      const isOff = ['actif', 'eco'].includes(current_status);
+      showToast(isOff ? `${nom} mis hors tension.` : `${nom} remis sous tension.`, 'success');
     } catch (err) {
-      console.error(err);
+      showToast("Erreur lors de la commutation.", 'error');
+    } finally {
+      setLoadingActionId(null);
     }
   };
 
-  const filteredAppareils = filterSiteId
-    ? appareils.filter(app => app.site_id === filterSiteId)
-    : appareils;
+  const handleEco = async (machine_id: string, nom: string) => {
+    setLoadingActionId(machine_id);
+    try {
+      await fetch(`${API_URL}/api/machines/${machine_id}/eco`, { method: 'POST' });
+      await fetchMachines();
+      showToast(`Mode Éco appliqué à ${nom} (-35% de puissance).`, 'success');
+    } catch (err) {
+      showToast("Erreur mode éco.", 'error');
+    } finally {
+      setLoadingActionId(null);
+    }
+  };
+
+  const handleRunSimulation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simulatingMachine) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/machines/${simulatingMachine.machine_id}/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          temperature_c: Number(simTemp),
+          power_kw: Number(simPower),
+          vibration_hz: Number(simVibration),
+          pressure_bar: Number(simPressure),
+        }),
+      });
+      const data = await res.json();
+      await fetchMachines();
+      setSimulatingMachine(null);
+      showToast(`Simulation injectée sur ${simulatingMachine.nom}. Détection d'anomalie mise à jour.`, 'info');
+    } catch (err) {
+      showToast("Erreur lors de l'injection des capteurs.", 'error');
+    }
+  };
+
+  const filteredMachines = machines.filter((m) => {
+    const matchesQuery = m.nom.toLowerCase().includes(searchQuery.toLowerCase()) || m.machine_id.toLowerCase().includes(searchQuery.toLowerCase());
+    if (statusFilter === 'all') return matchesQuery;
+    return matchesQuery && m.status === statusFilter;
+  });
 
   return (
     <div>
-      <div className="page-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px', color: 'var(--foreground)' }}>Équipements Enregistrés</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-            Surveillance en temps réel et diagnostics IA sur <strong>{appareils.length} équipements actifs</strong>.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-cta)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Inventaire & Télégestion
+            </span>
+            <ProvenanceBadge type="mesure" label="Contrôle Direct" />
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+            Gestion des Équipements
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            Supervisez la consommation unitaire, enclenchez le mode éco ou simulez des scénarios de surcharge.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button className="btn-secondary" style={{ width: 'auto', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', borderColor: 'var(--primary)', color: 'var(--foreground)' }} onClick={() => { fetchSites(); setIsMediaModalOpen(true); }}>
-            📷 Analyser Flux Vidéo (IA)
-          </button>
-          <button className="btn-secondary" style={{ width: 'auto', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#DC2626', borderColor: '#FCA5A5' }} onClick={triggerFakeAlert}>
-            <AlertTriangle size={18} /> Simuler Capteur (Alerte)
-          </button>
-          <button className="btn-primary" style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }} onClick={() => { fetchSites(); setIsModalOpen(true); }}>
-            <Plus size={18} /> Ajouter un Équipement
-          </button>
-        </div>
       </div>
 
-      {/* 4 KPIs Top Bar */}
-      <div className="grid-4-col" style={{ marginBottom: '32px' }}>
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>PUISSANCE TOTALE</div>
-            <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>Actuel</div>
-          </div>
-          <div style={{ fontSize: '32px', fontWeight: 800 }}>{totalPower.toFixed(1)} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>kW</span></div>
+      {/* Barre de filtres et recherche */}
+      <div
+        className="card-standard"
+        style={{
+          padding: '16px 20px',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          backgroundColor: 'var(--bg-card)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px' }}>
+          <Search size={16} color="var(--text-muted)" />
+          <input
+            type="text"
+            placeholder="Rechercher une machine par nom ou identifiant..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-standard"
+            style={{ minHeight: '36px', border: 'none', background: 'transparent' }}
+          />
         </div>
 
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>SANTÉ IA MOYENNE</div>
-            <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>Optimal <ShieldCheck size={12} /></div>
-          </div>
-          <div style={{ fontSize: '32px', fontWeight: 800 }}>94.8 <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>%</span></div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px', border: '1px solid #DC2626', borderLeft: '4px solid #DC2626' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>ALERTES ACTIVES</div>
-            <div style={{ fontSize: '11px', color: '#DC2626', fontWeight: 700 }}>Critique ⚠</div>
-          </div>
-          <div style={{ fontSize: '32px', fontWeight: 800, color: '#DC2626' }}>{appareils.filter(a => a.status === 'alerte').length < 10 ? `0${appareils.filter(a => a.status === 'alerte').length}` : appareils.filter(a => a.status === 'alerte').length} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Noeuds</span></div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>OPTIMISATION</div>
-            <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>Active ⚡</div>
-          </div>
-          <div style={{ fontSize: '32px', fontWeight: 800 }}>12.5 <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>x</span></div>
-        </div>
-      </div>
-
-      {/* Filters Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', backgroundColor: 'rgba(255,255,255,0.01)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--surface-border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Filtrer par Site :</span>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Statut :</span>
           <select
-            value={filterSiteId}
-            onChange={(e) => setFilterSiteId(e.target.value)}
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: '#fff',
-              borderRadius: '8px',
-              padding: '6px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none'
-            }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-standard"
+            style={{ minHeight: '36px', padding: '4px 10px', fontSize: '12px', width: 'auto' }}
           >
-            <option value="">Tous les sites</option>
-            {sites.map(s => (
-              <option key={s.id} value={s.id}>{s.nom}</option>
-            ))}
+            <option value="all">Tous les états ({machines.length})</option>
+            <option value="actif">En service (Actif)</option>
+            <option value="eco">Mode Éco (-35%)</option>
+            <option value="alerte">En Alerte</option>
+            <option value="inactif">Hors tension</option>
           </select>
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-          Affichage de <strong style={{ color: 'var(--foreground)' }}>{filteredAppareils.length}</strong> sur <strong>{appareils.length}</strong> équipements
-        </div>
       </div>
 
-      {/* Equipment Cards */}
-      <div className="grid-3-col">
-        {filteredAppareils.map((app) => (
-          <div key={app.id} className="glass-card" style={{
-            padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            borderTop: `4px solid ${app.status === 'actif' ? 'var(--primary)' : app.status === 'alerte' ? 'var(--danger)' : 'var(--surface-border)'}`,
-            backgroundColor: app.status === 'alerte' ? 'rgba(239, 68, 68, 0.05)' : app.status === 'hors ligne' ? 'rgba(255, 255, 255, 0.01)' : 'transparent',
-            borderColor: app.status === 'alerte' ? 'rgba(239, 68, 68, 0.2)' : 'var(--surface-border)'
-          }}>
-            <div style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: app.status === 'actif' ? 'var(--primary)' : app.status === 'alerte' ? 'var(--danger)' : 'var(--text-muted)' }}></div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', color: app.status === 'alerte' ? 'var(--danger)' : 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      {app.status}
-                    </div>
-                  </div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--foreground)' }}>{app.nom}</h3>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>📍 Site : {app.site_nom}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>ID Actif: #{app.id}</div>
-                </div>
-                <div>{app.icon}</div>
-              </div>
+      {/* Grille des Équipements */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+        {filteredMachines.map((machine) => {
+          const isEco = machine.status === 'eco';
+          const isActive = ['actif', 'eco'].includes(machine.status);
+          const isAlert = machine.status === 'alerte';
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{app.status === 'hors ligne' ? 'Dernière Activité' : app.status === 'alerte' ? app.metric1Label : 'Puissance Nominale'}</span>
-                  <span style={{ fontWeight: 600, color: app.status === 'alerte' ? '#f87171' : app.metric1Color }}>{app.status === 'actif' ? app.power : app.metric1Value}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{app.status === 'hors ligne' ? 'Cycle de Maintenance' : app.status === 'alerte' ? 'Optimisation IA' : app.metric1Label}</span>
-                  <span style={{ fontWeight: 600, color: app.status === 'alerte' ? 'var(--danger)' : app.status === 'hors ligne' ? 'var(--primary)' : app.metric1Color }}>
-                    {app.status === 'alerte' ? app.alertType : app.status === 'hors ligne' ? app.offlineStatus : app.metric1Value}
+          return (
+            <div
+              key={machine.machine_id}
+              className="card-standard"
+              style={{
+                padding: '20px',
+                borderColor: isAlert ? 'var(--status-alert-border)' : undefined,
+                backgroundColor: isAlert ? 'var(--status-alert-bg)' : 'var(--bg-card)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Header de la carte */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        width: '9px',
+                        height: '9px',
+                        borderRadius: '50%',
+                        backgroundColor: isAlert ? 'var(--status-alert)' : isEco ? 'var(--status-warning)' : isActive ? 'var(--status-success)' : 'var(--text-muted)',
+                      }}
+                    />
+                    <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                      {machine.nom}
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    ID: {machine.machine_id} {machine.site_nom ? `• ${machine.site_nom}` : ''}
                   </span>
                 </div>
 
-                <div style={{ marginTop: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    <span>{app.metric2Label}</span>
-                    <span style={{ color: app.metric2Color }}>{app.metric2Value}</span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    backgroundColor: isAlert ? 'var(--status-alert)' : isEco ? 'var(--status-warning-bg)' : isActive ? 'var(--status-success-bg)' : 'var(--bg-surface)',
+                    color: isAlert ? '#FFFFFF' : isEco ? 'var(--status-warning)' : isActive ? 'var(--status-success)' : 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {machine.status}
+                </span>
+              </div>
+
+              {/* Télémétrie de l'appareil */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '10px',
+                  padding: '12px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-surface)',
+                  marginBottom: '16px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Puissance</div>
+                  <div className="tabular-numbers" style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {machine.power_kw} <span style={{ fontSize: '11px', fontWeight: 600 }}>kW</span>
                   </div>
-                  <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--surface-border)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ width: `${app.metric2Progress}%`, height: '100%', backgroundColor: app.metric2Color }}></div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Température</div>
+                  <div className="tabular-numbers" style={{ fontSize: '16px', fontWeight: 800, color: machine.temperature_c > 75 ? 'var(--status-alert)' : 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {machine.temperature_c?.toFixed(1)} <span style={{ fontSize: '11px', fontWeight: 600 }}>°C</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Vibrations</div>
+                  <div className="tabular-numbers" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {machine.vibration_hz ? `${machine.vibration_hz} Hz` : 'N/A'}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Pression</div>
+                  <div className="tabular-numbers" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {machine.pressure_bar ? `${machine.pressure_bar} bar` : 'N/A'}
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div style={{ marginTop: 'auto', padding: '16px', borderTop: `1px solid ${app.status === 'alerte' ? 'rgba(239, 68, 68, 0.2)' : 'var(--surface-border)'}`, backgroundColor: 'transparent' }}>
-              {app.status === 'alerte' ? (
-                <button onClick={() => router.push('/dashboard/predictions')} className="btn-primary" style={{ backgroundColor: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.3)', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', width: '100%', border: 'none', cursor: 'pointer' }}>
-                  <AlertTriangle size={16} /> Lancer Diagnostic d'Urgence
+              {/* Boutons d'action */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                <button
+                  onClick={() => handleEco(machine.machine_id, machine.nom)}
+                  disabled={loadingActionId === machine.machine_id}
+                  className="btn-ghost"
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: isEco ? 'var(--status-success-bg)' : 'var(--bg-surface)',
+                    color: isEco ? 'var(--status-success)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <Leaf size={14} />
+                  <span>Mode Éco</span>
                 </button>
-              ) : app.status === 'hors ligne' ? (
-                <button onClick={() => showToast(`Réveil du système ${app.nom} en cours...`, 'success')} className="btn-secondary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <RotateCcw size={16} /> Réveiller le Système
+
+                <button
+                  onClick={() => handleToggle(machine.machine_id, machine.nom, machine.status)}
+                  disabled={loadingActionId === machine.machine_id}
+                  className="btn-ghost"
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: isActive ? 'var(--bg-surface)' : 'var(--status-alert-bg)',
+                    color: isActive ? 'var(--status-success)' : 'var(--status-alert)',
+                  }}
+                  title={isActive ? 'Éteindre' : 'Allumer'}
+                >
+                  <Power size={15} />
                 </button>
-              ) : (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => router.push('/dashboard/predictions')} className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <Activity size={16} /> Diagnostics
-                  </button>
-                  <button onClick={() => { fetchMachines(); showToast(`Actualisation des données de ${app.nom}...`, 'info'); }} className="btn-secondary" style={{ width: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}>
-                    <RotateCcw size={16} />
-                  </button>
-                </div>
-              )}
+
+                <button
+                  onClick={() => {
+                    setSimulatingMachine(machine);
+                    setSimPower(machine.power_kw);
+                    setSimTemp(machine.temperature_c || 30);
+                    setSimVibration(machine.vibration_hz || 2.0);
+                    setSimPressure(machine.pressure_bar || 1.2);
+                  }}
+                  className="btn-ghost"
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-cta)',
+                  }}
+                  title="Simuler capteurs"
+                >
+                  <Sliders size={15} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Modal d'ajout d'appareil */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-card" style={{ width: '400px', backgroundColor: 'var(--surface)', border: '1px solid var(--surface-border)', padding: '24px', zIndex: 1001 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Ajouter un Équipement</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                ✖
-              </button>
+      {/* Module Vision Média Multimodal */}
+      <MediaAnalyzerWidget
+        machines={machines.map((m) => ({ id: m.machine_id, nom: m.nom, site_nom: m.site_nom }))}
+      />
+
+      {/* Simulation Modal */}
+      {simulatingMachine && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 99990,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setSimulatingMachine(null)}
+        >
+          <div
+            className="card-standard"
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: 'var(--bg-elevated)',
+              boxShadow: 'var(--shadow-dropdown)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '28px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Simulateur de Capteurs : {simulatingMachine.nom}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Injectez des variations de charge pour tester les alertes en direct.
+                </p>
+              </div>
+              <ProvenanceBadge type="synthetique" label="Simulation" />
             </div>
 
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if (isSubmitting) return;
-              const formData = new FormData(e.currentTarget);
-              const name = formData.get('nom') as string;
-              const power = formData.get('puissance') as string;
-              const siteId = formData.get('site_id') as string;
-              if (!name || !power || !siteId) return;
-
-              setIsSubmitting(true);
-              try {
-                await fetch(`${API_URL}/api/machines`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ nom: name, power_kw: parseFloat(power), quantite: 1, site_id: siteId })
-                });
-                setIsModalOpen(false);
-                fetchMachines(); // Refresh immediately
-              } catch (err) {
-                console.error("Erreur d'ajout", err);
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}>
-              <div className="input-group">
-                <label className="input-label">Nom de l'équipement</label>
-                <input type="text" name="nom" className="input-field" placeholder="Ex: Turbine-Beta-02" required />
+            <form onSubmit={handleRunSimulation} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Puissance appelée (kW)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={simPower}
+                  onChange={(e) => setSimPower(parseFloat(e.target.value) || 0)}
+                  className="input-standard tabular-numbers"
+                  required
+                />
               </div>
 
-              <div className="input-group">
-                <label className="input-label">Associer au Site</label>
-                <select name="site_id" className="input-field" required style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '12px' }}>
-                  <option value="">-- Sélectionner un site --</option>
-                  {sites.map(s => (
-                    <option key={s.id} value={s.id}>{s.nom} ({s.localisation})</option>
-                  ))}
-                </select>
-                {sites.length === 0 && (
-                  <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '6px' }}>
-                    ⚠ Aucun site créé. Allez dans l'onglet <strong>Sites</strong> pour en créer un d'abord.
-                  </div>
-                )}
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Température moteur (°C)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={simTemp}
+                  onChange={(e) => setSimTemp(parseFloat(e.target.value) || 0)}
+                  className="input-standard tabular-numbers"
+                  required
+                />
               </div>
 
-              <div className="grid-2-equal">
-                <div className="input-group">
-                  <label className="input-label">Puissance (kW)</label>
-                  <input type="number" name="puissance" className="input-field" placeholder="Ex: 150" min="0.1" step="0.1" required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Vibrations (Hz)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={simVibration}
+                    onChange={(e) => setSimVibration(parseFloat(e.target.value) || 0)}
+                    className="input-standard tabular-numbers"
+                  />
                 </div>
-                <div className="input-group">
-                  <label className="input-label">Quantité</label>
-                  <input type="number" name="quantite" className="input-field" defaultValue="1" min="1" required />
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Pression (bar)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={simPressure}
+                    onChange={(e) => setSimPressure(parseFloat(e.target.value) || 0)}
+                    className="input-standard tabular-numbers"
+                  />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Annuler</button>
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? 'Ajout en cours...' : 'Ajouter'}
+              {/* Scénarios d'émulation */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => { setSimPower(35); setSimTemp(28); setSimVibration(1.5); setSimPressure(1.0); }}
+                  className="btn-ghost"
+                  style={{ fontSize: '11px', padding: '3px 8px', border: '1px solid var(--border-color)' }}
+                >
+                  🟢 Nominal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSimPower(180); setSimTemp(89); setSimVibration(24); setSimPressure(3.5); }}
+                  className="btn-ghost"
+                  style={{ fontSize: '11px', padding: '3px 8px', border: '1px solid var(--status-alert-border)', color: 'var(--status-alert)' }}
+                >
+                  🔴 Surchauffe Critique
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="submit" className="btn-cta" style={{ flex: 1 }}>
+                  Injecter la Télémétrie
+                </button>
+                <button type="button" onClick={() => setSimulatingMachine(null)} className="btn-outline">
+                  Annuler
                 </button>
               </div>
             </form>
@@ -346,178 +468,8 @@ export default function AppareilsPage() {
         </div>
       )}
 
-      {/* Modal d'analyse multimédia */}
-      {isMediaModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-card" style={{ width: '450px', backgroundColor: 'var(--surface)', border: '1px solid var(--surface-border)', padding: '24px', zIndex: 1001 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Détecteur de Menaces par Flux Média</h2>
-              <button onClick={() => { setIsMediaModalOpen(false); setAnalysisResult(null); setMediaFile(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                ✖
-              </button>
-            </div>
-
-            {!analyzingMedia && !analysisResult && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                if (!selectedMachineId || !mediaFile) return;
-
-                setAnalyzingMedia(true);
-                const formData = new FormData();
-                formData.append('file', mediaFile);
-
-                try {
-                  const res = await fetch(`${API_URL}/api/machines/${selectedMachineId}/analyze-media`, {
-                    method: 'POST',
-                    body: formData
-                  });
-                  const json = await res.json();
-                  setAnalysisResult(json);
-                  fetchMachines(); // Refresh lists
-                } catch (err) {
-                  console.error(err);
-                  showToast("Erreur d'analyse du fichier.", 'error');
-                } finally {
-                  setAnalyzingMedia(false);
-                }
-              }}>
-                <div className="input-group">
-                  <label className="input-label">Sélectionner l'Équipement ciblé</label>
-                  <select
-                    value={selectedMachineId}
-                    onChange={(e) => setSelectedMachineId(e.target.value)}
-                    className="input-field"
-                    required
-                    style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', padding: '12px' }}
-                  >
-                    <option value="">-- Choisir un équipement --</option>
-                    {appareils.map(app => (
-                      <option key={app.id} value={app.id}>{app.nom} ({app.site_nom})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="input-group" style={{ marginTop: '20px' }}>
-                  <label className="input-label">Sélectionner un fichier (Photo ou Vidéo de menace)</label>
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={(e) => setMediaFile(e.target.files ? e.target.files[0] : null)}
-                    className="input-field"
-                    required
-                    style={{ padding: '8px' }}
-                  />
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                    Tip : Nommez votre fichier "fire.png" ou "fuite.mp4" pour tester la simulation si la clé Gemini n'est pas configurée.
-                  </div>
-                </div>
-
-                {/* Media Preview */}
-                {mediaFile && (
-                  <div style={{ marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.2)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>Aperçu du média :</div>
-                    {mediaFile.type.startsWith('image/') ? (
-                      <img
-                        src={URL.createObjectURL(mediaFile)}
-                        alt="Preview"
-                        style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', borderRadius: '4px' }}
-                      />
-                    ) : (
-                      <video
-                        src={URL.createObjectURL(mediaFile)}
-                        controls
-                        style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '4px' }}
-                      />
-                    )}
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', marginTop: '8px', wordBreak: 'break-all' }}>
-                      {mediaFile.name} ({(mediaFile.size / (1024 * 1024)).toFixed(2)} MB)
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-                  <button type="button" className="btn-secondary" onClick={() => setIsMediaModalOpen(false)}>Annuler</button>
-                  <button type="submit" className="btn-primary">Lancer l'Analyse IA</button>
-                </div>
-              </form>
-            )}
-
-            {analyzingMedia && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '20px' }}>
-                <div style={{ width: '40px', height: '40px', border: '4px solid var(--primary-light)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--foreground)', fontWeight: 600 }}>
-                  Analyse multimodale IA en cours...
-                </div>
-                <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                  L'IA inspecte les frames du fichier pour identifier des anomalies thermiques, incendies, fuites ou pannes.
-                </div>
-                <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
-              </div>
-            )}
-
-            {analysisResult && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '10px' }}>
-                <div style={{
-                  padding: '20px',
-                  borderRadius: '12px',
-                  backgroundColor: analysisResult.status === 'ALERTE' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                  border: `1px solid ${analysisResult.status === 'ALERTE' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', fontWeight: 800, color: analysisResult.status === 'ALERTE' ? 'var(--danger)' : 'var(--primary)' }}>
-                    <span>{analysisResult.status === 'ALERTE' ? '⚠ INCIDENT IDENTIFIÉ' : '✓ INFRASTRUCTURE SAINE'}</span>
-                  </div>
-                  <div style={{ fontSize: '14px', color: 'var(--foreground)', fontWeight: 600 }}>
-                    {analysisResult.message}
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    <strong>Verdict IA :</strong> {analysisResult.description}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAnalysisResult(null)}>Réanalyser</button>
-                  <button className="btn-primary" style={{ flex: 1 }} onClick={() => { setIsMediaModalOpen(false); setAnalysisResult(null); setMediaFile(null); }}>Fermer</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Beautiful Toast Notification */}
-      {toastMessage && (
-        <div style={{
-          position: 'fixed',
-          bottom: '32px',
-          right: '32px',
-          backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6',
-          color: '#fff',
-          padding: '16px 24px',
-          borderRadius: '12px',
-          fontWeight: 600,
-          zIndex: 99999,
-          boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-        }}>
-          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
-          {toastMessage}
-        </div>
-      )}
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}} />
+      {/* Toast */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

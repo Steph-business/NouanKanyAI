@@ -1,516 +1,234 @@
 'use client';
 
-/**
- * app/dashboard/predictions/page.tsx — Plateforme Intégrée d'Intelligence Artificielle de NouanKanyAI.
- * 
- * Combine :
- * - Assistant Copilot & Actions physiques recommandées
- * - Moteur d'inférence en direct (XGBoost Forecaster & Isolation Forest)
- * - Télémétrie & observabilité opérationnelle temps réel
- * - Registre de modèles, versions et journal d'audit
- */
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { Bot, Sparkles, Send, Cpu, Activity, History, Layers } from 'lucide-react';
 import {
-  Bot,
-  Send,
-  Sparkles,
-  Zap,
-  ShieldAlert,
-  Loader2,
-  Cpu,
-  Activity,
-  Database,
-  History,
-  TrendingUp,
-} from 'lucide-react';
-import { API_URL } from '@/lib/api';
-import {
-  MLHealthBadge,
   ForecastingWidget,
   AnomalyDetectorWidget,
   MLMetricsDashboard,
   MLModelRegistryCard,
   MLAuditTable,
 } from '@/components/ml';
-
-type TabType = 'copilot' | 'inference' | 'metrics' | 'registry';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
+import { API_URL } from '@/lib/api';
 
 export default function PredictionsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('copilot');
-  const [inputMessage, setInputMessage] = useState('');
-  
-  const getCurrentTime = () => {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-    const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    return `${dateStr} à ${timeStr}`;
-  };
+  const [activeTab, setActiveTab] = useState<'copilot' | 'inference' | 'observability' | 'registry' | 'audit'>('copilot');
 
-  const defaultMessage = {
-    sender: 'ai',
-    text: 'Bonjour ! Je suis votre Assistant IA NouanKanyAI. Je suis connecté à vos modèles XGBoost v2.0.0 et Isolation Forest v2.0.0 en temps réel. Comment puis-je vous aider ?',
-    timestamp: getCurrentTime(),
-  };
+  // Copilot chat state
+  const [messages, setMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; time: string }>>([
+    {
+      sender: 'ai',
+      text: "Bonjour. Je suis votre Copilot Énergétique NouanKanyAI. Je peux analyser vos courbes de puissance, recommander des réglages selon le barème CIE et auditer vos équipements en temps réel.",
+      time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    },
+  ]);
+  const [input, setInput] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
 
-  const [messages, setMessages] = useState<any[]>([defaultMessage]);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [loadingRecs, setLoadingRecs] = useState(true);
-  const [executingId, setExecutingId] = useState<string | null>(null);
+  const handleSendChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loadingChat) return;
 
-  // Notifications Toast
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'info' | 'error' | 'success'>('info');
+    const userText = input.trim();
+    setInput('');
+    const timeNow = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-  const showToast = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
-    setToastMessage(msg);
-    setToastType(type);
-    setTimeout(() => setToastMessage(''), 3500);
-  };
-
-  // Chargement des recommandations
-  useEffect(() => {
-    const fetchRecommendations = async () => {
-      try {
-        const machinesRes = await fetch(`${API_URL}/api/machines`);
-        const currentMachinesState = await machinesRes.json();
-
-        const response = await fetch(`${API_URL}/api/recommend`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(currentMachinesState),
-        });
-
-        const data = await response.json();
-        if (data.recommendations) {
-          setRecommendations(data.recommendations);
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération des recommandations:", error);
-      } finally {
-        setLoadingRecs(false);
-      }
-    };
-
-    fetchRecommendations();
-  }, []);
-
-  const handleSend = async () => {
-    if (!inputMessage.trim()) return;
-
-    const userMsg = inputMessage;
-    setMessages((prev) => [...prev, { sender: 'user', text: userMsg, timestamp: getCurrentTime() }]);
-    setInputMessage('');
-
-    setMessages((prev) => [...prev, { sender: 'ai', text: '...', timestamp: getCurrentTime() }]);
+    setMessages((prev) => [...prev, { sender: 'user', text: userText, time: timeNow }]);
+    setLoadingChat(true);
 
     try {
-      const machinesRes = await fetch(`${API_URL}/api/machines`);
-      const currentMachinesState = await machinesRes.json();
-
-      const response = await fetch(`${API_URL}/api/chat`, {
+      const res = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, context: currentMachinesState }),
+        body: JSON.stringify({ message: userText }),
       });
+      const data = await res.json();
 
-      const data = await response.json();
-
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = {
+      setMessages((prev) => [
+        ...prev,
+        {
           sender: 'ai',
-          text: data.response,
-          timestamp: getCurrentTime(),
-        };
-        return newMsgs;
-      });
-    } catch (error) {
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = {
+          text: data.response || "Analyse complétée.",
+          time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
           sender: 'ai',
-          text: "Erreur de connexion à l'IA NouanKanyAI.",
-          timestamp: getCurrentTime(),
-        };
-        return newMsgs;
-      });
-    }
-  };
-
-  const executeAction = async (rec: any) => {
-    if (executingId) return;
-
-    const actionId = rec.machine_id + rec.type;
-    setExecutingId(actionId);
-
-    try {
-      if (rec.type === 'alerte') {
-        showToast(`Coupure d'urgence de ${rec.machine_id} en cours...`, 'error');
-        await fetch(`${API_URL}/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
-      } else if (rec.type === 'optimisation') {
-        showToast(`Activation du mode Éco sur ${rec.machine_id}...`, 'info');
-        await fetch(`${API_URL}/api/machines/${rec.machine_id}/eco`, { method: 'POST' });
-      } else if (rec.type === 'délestage') {
-        showToast(`Délestage préventif de ${rec.machine_id} en cours...`, 'info');
-        await fetch(`${API_URL}/api/machines/${rec.machine_id}/toggle`, { method: 'POST' });
-      }
-
-      const actionText = `Exécute l'action recommandée : "${rec.action}" sur l'équipement ${rec.machine_id}.`;
-
-      setMessages((prev) => [...prev, { sender: 'user', text: actionText, timestamp: getCurrentTime() }]);
-      setMessages((prev) => [...prev, { sender: 'ai', text: "Exécution de la commande en cours...", timestamp: getCurrentTime() }]);
-
-      const machinesRes = await fetch(`${API_URL}/api/machines`);
-      const currentMachinesState = await machinesRes.json();
-
-      const response = await fetch(`${API_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: `L'utilisateur vient d'exécuter l'action physique : ${rec.action} sur ${rec.machine_id}. Confirme brièvement et professionnellement que l'intervention est un succès et que le système est sécurisé/optimisé.`,
-          context: currentMachinesState,
-        }),
-      });
-
-      const data = await response.json();
-
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = {
-          sender: 'ai',
-          text: data.response,
-          timestamp: getCurrentTime(),
-        };
-        return newMsgs;
-      });
-
-      setRecommendations((prev) => prev.filter((r) => r.machine_id !== rec.machine_id || r.type !== rec.type));
-      showToast('Intervention réussie.', 'success');
-    } catch (error) {
-      console.error(error);
-      setMessages((prev) => {
-        const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = {
-          sender: 'ai',
-          text: "Erreur technique lors de l'exécution de l'action physique.",
-          timestamp: getCurrentTime(),
-        };
-        return newMsgs;
-      });
-      showToast("Erreur lors de l'exécution.", 'error');
+          text: "Erreur de communication avec le serveur IA.",
+          time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
     } finally {
-      setExecutingId(null);
+      setLoadingChat(false);
     }
-  };
-
-  const getIconForType = (type: string, severity: string) => {
-    if (severity === 'critique') return <ShieldAlert size={20} color="#DC2626" />;
-    if (type === 'optimisation') return <Sparkles size={20} color="var(--primary)" />;
-    if (type === 'délestage') return <Zap size={20} color="var(--accent)" />;
-    return <Bot size={20} color="var(--primary)" />;
-  };
-
-  const formatText = (text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/###/g, '')
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*/g, '•');
   };
 
   return (
     <div>
-      {/* Header avec Statut ML en direct */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '6px', letterSpacing: '0.05em' }}>
-            <span style={{ color: 'var(--primary)' }}>Intelligence Artificielle</span> / Moteurs & Copilot
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-cta)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Intelligence Artificielle & MLOps
+            </span>
+            <ProvenanceBadge type="synthetique" label="Inférence v2.0" />
           </div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0, color: 'var(--foreground)' }}>
-            Plateforme IA NouanKanyAI
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+            Assistant IA & Moteurs Prédictifs
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
-            Inférence énergétique XGBoost, détection d'anomalies Isolation Forest et observabilité en temps réel.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            Interagissez avec le Copilot ou exploitez directement les modèles XGBoost et Isolation Forest.
           </p>
         </div>
-
-        <MLHealthBadge showDetails={true} />
       </div>
 
-      {/* Barre de navigation par onglets */}
+      {/* Navigation par Onglets */}
       <div
         style={{
           display: 'flex',
           gap: '8px',
-          borderBottom: '1px solid var(--surface-border)',
-          marginBottom: '24px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '28px',
           overflowX: 'auto',
-          paddingBottom: '2px',
         }}
       >
         {[
-          { id: 'copilot', label: 'Copilot & Recommandations', icon: Bot },
-          { id: 'inference', label: 'Moteurs Inférence (XGBoost & Anomaly)', icon: Cpu },
-          { id: 'metrics', label: 'Observabilité & Télémétrie', icon: Activity },
-          { id: 'registry', label: 'Registre & Journal Audit', icon: Database },
+          { id: 'copilot', label: 'Assistant Conversationnel', icon: Bot },
+          { id: 'inference', label: 'Inférences Interactives (XGBoost / Isolation)', icon: Cpu },
+          { id: 'observability', label: 'Observabilité MLOps', icon: Activity },
+          { id: 'registry', label: 'Registre des Modèles', icon: Layers },
+          { id: 'audit', label: 'Journal d\'Audit', icon: History },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as TabType)}
+              onClick={() => setActiveTab(tab.id as any)}
               style={{
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '10px 16px',
-                borderRadius: '8px 8px 0 0',
+                padding: '12px 18px',
                 border: 'none',
-                borderBottom: isActive ? '3px solid #059669' : '3px solid transparent',
-                background: isActive ? 'var(--surface)' : 'transparent',
-                color: isActive ? 'var(--foreground)' : 'var(--text-muted)',
-                fontWeight: isActive ? 700 : 500,
+                background: 'transparent',
                 fontSize: '13px',
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                borderBottom: isActive ? '2px solid var(--accent-cta)' : '2px solid transparent',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap',
+                transition: 'color 0.15s ease',
               }}
             >
-              <Icon size={16} color={isActive ? '#059669' : 'currentColor'} />
+              <Icon size={16} color={isActive ? 'var(--accent-cta)' : 'currentColor'} />
               <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Contenu selon l'onglet actif */}
-
-      {/* 1. Onglet Copilot & Recommandations */}
+      {/* Onglet 1 : Copilot Chat */}
       {activeTab === 'copilot' && (
-        <div className="grid-2-equal predictions-grid" style={{ height: '600px' }}>
-          {/* Chat Interface */}
-          <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--surface-border)', backgroundColor: 'var(--surface)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ backgroundColor: 'var(--primary)', padding: '8px', borderRadius: '50%' }}>
-                <Bot color="#fff" size={20} />
-              </div>
+        <div className="card-standard" style={{ padding: 0, overflow: 'hidden', height: '600px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Bot size={20} color="var(--accent-cta)" />
               <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>NouanKanyAI Copilot</div>
-                <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}>● En ligne et synchronisé (FastAPI v2.0.0)</div>
+                <span style={{ fontSize: '14px', fontWeight: 800 }}>Copilot NouanKanyAI (Gemini 2.5 Flash)</span>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Contextualisé avec vos équipements et la grille CIE</div>
               </div>
             </div>
-
-            <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: 'var(--background-alt)' }}>
-              {messages.map((msg, idx) => (
-                <div key={idx} style={{ alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '80%', display: 'flex', flexDirection: 'column' }}>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      color: 'var(--text-muted)',
-                      marginBottom: '6px',
-                      textAlign: msg.sender === 'user' ? 'right' : 'left',
-                      fontWeight: 500,
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    {msg.sender === 'user' ? 'Vous' : 'NouanKanyAI'} • {msg.timestamp || getCurrentTime()}
-                  </div>
-                  <div
-                    style={{
-                      backgroundColor: msg.sender === 'user' ? 'var(--primary)' : 'var(--surface)',
-                      color: msg.sender === 'user' ? '#fff' : 'var(--foreground)',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: msg.sender === 'ai' ? '1px solid var(--surface-border)' : 'none',
-                      fontSize: '14px',
-                      lineHeight: '1.5',
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {formatText(msg.text)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ padding: '16px', borderTop: '1px solid var(--surface-border)', backgroundColor: 'var(--surface)', display: 'flex', gap: '12px' }}>
-              <input
-                type="text"
-                className="chat-input"
-                placeholder="Demandez une analyse, un rapport, ou une prédiction..."
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                style={{ flex: 1, padding: '12px 16px', borderRadius: '24px', border: 'none', outline: 'none', backgroundColor: 'var(--primary)', color: '#ffffff' }}
-              />
-              <button
-                onClick={handleSend}
-                style={{
-                  backgroundColor: 'var(--primary)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '48px',
-                  height: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <Send size={18} />
-              </button>
-            </div>
+            <ProvenanceBadge type="synthetique" label="Inférence LLM" />
           </div>
 
-          {/* Actionable Recommendations */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', paddingRight: '8px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-              RECOMMANDATIONS DE L'IA ({recommendations.length})
-              {loadingRecs && <Loader2 size={16} className="animate-spin text-primary" />}
-            </h3>
-
-            {!loadingRecs && recommendations.length === 0 ? (
-              <div className="glass-card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                Aucune recommandation critique pour le moment. Vos équipements fonctionnent de manière optimale !
-              </div>
-            ) : (
-              recommendations.map((rec, idx) => (
+          {/* Messages */}
+          <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: 'var(--bg-primary)' }}>
+            {messages.map((msg, idx) => {
+              const isUser = msg.sender === 'user';
+              return (
                 <div
                   key={idx}
                   style={{
-                    backgroundColor: 'var(--surface)',
-                    border: '1px solid var(--surface-border)',
-                    borderRadius: '6px',
-                    padding: '20px',
+                    alignSelf: isUser ? 'flex-end' : 'flex-start',
+                    maxWidth: '75%',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
+                    alignItems: isUser ? 'flex-end' : 'flex-start',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div>{getIconForType(rec.type, rec.severity)}</div>
-                    <div style={{ fontWeight: 700, fontSize: '15px' }}>{rec.title}</div>
-                  </div>
-
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                    {rec.description}
-                  </div>
-
                   <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: 'rgba(0,0,0,0.2)',
                       padding: '12px 16px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                      marginTop: '4px',
+                      borderRadius: isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                      backgroundColor: isUser ? 'var(--accent-cta)' : 'var(--bg-card)',
+                      color: isUser ? '#FFFFFF' : 'var(--text-primary)',
+                      border: isUser ? 'none' : '1px solid var(--border-color)',
+                      fontSize: '13px',
+                      lineHeight: 1.5,
+                      boxShadow: 'var(--shadow-sm)',
                     }}
                   >
-                    {rec.gain_fcfa > 0 ? (
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
-                        Gain : +{rec.gain_fcfa.toLocaleString('fr-FR')} FCFA
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                        Intervention requise
-                      </div>
-                    )}
-                    <button
-                      onClick={() => executeAction(rec)}
-                      disabled={executingId === rec.machine_id + rec.type}
-                      className={rec.severity === 'critique' ? 'btn-secondary' : 'btn-primary'}
-                      style={{
-                        width: 'auto',
-                        padding: '8px 16px',
-                        fontSize: '12px',
-                        cursor: executingId === rec.machine_id + rec.type ? 'wait' : 'pointer',
-                        borderRadius: '4px',
-                        opacity: executingId === rec.machine_id + rec.type ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      {executingId === rec.machine_id + rec.type ? <Loader2 size={14} className="animate-spin" /> : null}
-                      {executingId === rec.machine_id + rec.type ? 'En cours...' : rec.action}
-                    </button>
+                    {msg.text}
                   </div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    {msg.time}
+                  </span>
                 </div>
-              ))
+              );
+            })}
+            {loadingChat && (
+              <div style={{ alignSelf: 'flex-start', padding: '10px 14px', borderRadius: '12px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                Copilot réfléchit...
+              </div>
             )}
           </div>
+
+          {/* Chat input */}
+          <form onSubmit={handleSendChat} style={{ padding: '14px 20px', backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              placeholder="Posez une question sur vos coûts, machines ou prévisions..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="input-standard"
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={!input.trim() || loadingChat} className="btn-cta">
+              <Send size={15} />
+              <span>Envoyer</span>
+            </button>
+          </form>
         </div>
       )}
 
-      {/* 2. Onglet Moteurs Inférence (XGBoost & Isolation Forest) */}
+      {/* Onglet 2 : Inférences XGBoost & Isolation Forest */}
       {activeTab === 'inference' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
           <ForecastingWidget />
           <AnomalyDetectorWidget />
         </div>
       )}
 
-      {/* 3. Onglet Observabilité & Télémétrie */}
-      {activeTab === 'metrics' && (
-        <div>
-          <MLMetricsDashboard />
-        </div>
+      {/* Onglet 3 : Observabilité MLOps */}
+      {activeTab === 'observability' && (
+        <MLMetricsDashboard />
       )}
 
-      {/* 4. Onglet Registre & Audit Trail */}
+      {/* Onglet 4 : Registre des modèles */}
       {activeTab === 'registry' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <MLModelRegistryCard />
-          <MLAuditTable />
-        </div>
+        <MLModelRegistryCard />
       )}
 
-      {/* Custom Toast Notification */}
-      {toastMessage && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '32px',
-            right: '32px',
-            backgroundColor: toastType === 'error' ? '#ef4444' : toastType === 'success' ? '#10b981' : '#3b82f6',
-            color: '#fff',
-            padding: '16px 24px',
-            borderRadius: '12px',
-            fontWeight: 600,
-            zIndex: 99999,
-            boxShadow: `0 10px 30px ${toastType === 'error' ? 'rgba(239, 68, 68, 0.3)' : toastType === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            animation: 'fadeInUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-          }}
-        >
-          <span style={{ fontSize: '18px' }}>{toastType === 'error' ? '⚠' : toastType === 'success' ? '✓' : 'ℹ'}</span>
-          {toastMessage}
-        </div>
+      {/* Onglet 5 : Journal d'Audit */}
+      {activeTab === 'audit' && (
+        <MLAuditTable />
       )}
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `,
-        }}
-      />
     </div>
   );
 }
