@@ -52,11 +52,11 @@ class IndustrialCopilot:
         self.prompt_builder = prompt_builder or PromptBuilder()
         self.context_builder = context_builder or IndustrialContextBuilder()
         self.conversation_manager = conversation_manager or ConversationManager()
-        self.tool_registry = tool_registry or ToolRegistry()
+        self.tool_registry = tool_registry or ToolRegistry.create_default_registry()
         self.memory_manager = memory_manager or ConversationMemoryManager()
         self.rag_pipeline = rag_pipeline
 
-        logger.info("[IndustrialCopilot] Copilot opérationnel et prêt.")
+        logger.info("[IndustrialCopilot] Copilot opérationnel avec registre d'outils par défaut.")
 
     def ask(
         self,

@@ -101,6 +101,23 @@ class ToolDefinition(BaseModel):
     )
 
 
+class ToolResult(BaseModel):
+    """
+    Résultat normalisé retourné par l'exécution d'un outil métier.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    tool_name: str = Field(..., description="Nom de l'outil exécuté")
+    success: bool = Field(default=True, description="Indique si l'exécution a réussi sans erreur")
+    data: Dict[str, Any] = Field(default_factory=dict, description="Données de sortie normalisées")
+    error: Optional[str] = Field(default=None, description="Message d'erreur en cas d'échec")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), description="Horodatage UTC de l'exécution"
+    )
+    execution_time_ms: float = Field(default=0.0, description="Durée de l'exécution en millisecondes")
+
+
 class DocumentChunk(BaseModel):
     """
     Segment textuel documentaire pour l'indexation et la recherche vectorielle (RAG).

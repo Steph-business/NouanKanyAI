@@ -2,7 +2,8 @@
 app/ai — Couche GenAI, Copilot Industriel et AI Gateway de NouanKanyAI.
 
 Expose l'ensemble des points d'accès unifiés pour l'interaction avec les LLMs (Google Gemini),
-le formatage de contexte industriel, la gestion de mémoire conversationnelle multi-niveaux et les pipelines RAG.
+le formatage de contexte industriel, la gestion de mémoire conversationnelle multi-niveaux,
+les pipelines RAG et le système d'outils métier (Function Calling).
 """
 
 from app.ai.assistant import IndustrialCopilot
@@ -31,7 +32,21 @@ from app.ai.prompt_builder import DEFAULT_SYSTEM_INSTRUCTION, PromptBuilder
 from app.ai.prompt_models import BuildingType, MLContext, PromptContext, UserRole
 from app.ai.rag import BaseRAGPipeline, IndustrialRAGPipeline
 from app.ai.retriever import BaseRetriever, InMemoryRetriever
-from app.ai.tools import BaseTool, CalculateEnergyCostTool, ToolRegistry
+from app.ai.tools import (
+    BaseTool,
+    CalculateEnergyCostTool,
+    ComparePeriodsTool,
+    DetectAnomalyTool,
+    GenerateReportTool,
+    GetBuildingMetricsTool,
+    GetElectricityTariffsTool,
+    GetEquipmentDetailsTool,
+    GetEnergyHistoryTool,
+    GetSensorStatusTool,
+    GetWeatherTool,
+    PredictConsumptionTool,
+    ToolRegistry,
+)
 from app.ai.types import (
     AIResponse,
     ChatMessage,
@@ -43,6 +58,7 @@ from app.ai.types import (
     RecommendationRecord,
     RetrievalResult,
     ToolDefinition,
+    ToolResult,
     UserPreferences,
 )
 
@@ -74,7 +90,18 @@ __all__ = [
     # Tools & Function Calling
     "BaseTool",
     "ToolRegistry",
+    "ToolResult",
     "CalculateEnergyCostTool",
+    "PredictConsumptionTool",
+    "DetectAnomalyTool",
+    "GetEnergyHistoryTool",
+    "ComparePeriodsTool",
+    "GetSensorStatusTool",
+    "GetEquipmentDetailsTool",
+    "GetBuildingMetricsTool",
+    "GenerateReportTool",
+    "GetWeatherTool",
+    "GetElectricityTariffsTool",
     # Embeddings & Vector Search
     "BaseEmbedder",
     "GeminiEmbedder",
