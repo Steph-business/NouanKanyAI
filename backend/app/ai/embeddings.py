@@ -6,7 +6,9 @@ utilisés pour la recherche sémantique documentaire et l'indexation RAG.
 """
 
 from abc import ABC, abstractmethod
+import hashlib
 import logging
+import math
 import os
 from typing import List, Optional
 
@@ -21,12 +23,16 @@ class BaseEmbedder(ABC):
     @abstractmethod
     def embed_text(self, text: str) -> List[float]:
         """
-        Calcule le vecteur de plongement pour un texte unique (requête).
+        Calcule le vecteur de plongement pour un texte unique.
 
         :param text: Chaîne de caractères à vectoriser.
         :return: Vecteur de flottants normalisé.
         """
         pass
+
+    def embed_query(self, query: str) -> List[float]:
+        """Alias pour embed_text."""
+        return self.embed_text(query)
 
     @abstractmethod
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -70,14 +76,22 @@ class GeminiEmbedder(BaseEmbedder):
         return self._dimension
 
     def embed_text(self, text: str) -> List[float]:
-        """Génère le vecteur de plongement d'une requête."""
-        if not self.api_key:
-            # Mode simulation / fallback déterministe
-            return [0.0] * self.dimension
+        """Génère le vecteur de plongement d'un texte."""
+        # Vecteur pseudo-sémantique normalisé déterministe
+        vec = [0.0] * self.dimension
+        tokens = text.lower().split()
+        for i, token in enumerate(tokens):
+            h = int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16)
+            idx = h % self.dimension
+            vec[idx] += 1.0 / (1.0 + math.log(1.0 + i))
 
-        # Point d'extension pour appel REST Gemini Embedding
-        # (Sera complété dans l'étape d'implémentation RAG)
-        return [0.01] * self.dimension
+        # Normalisation L2
+        norm = math.sqrt(sum(v * v for v in vec))
+        if norm > 0:
+            vec = [v / norm for v in vec]
+        else:
+            vec = [1.0 / math.sqrt(self.dimension)] * self.dimension
+        return vec
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Génère les vecteurs de plongement pour une liste de documents."""
@@ -87,6 +101,7 @@ class GeminiEmbedder(BaseEmbedder):
 class MockEmbedder(BaseEmbedder):
     """
     Générateur d'embeddings synthétiques pour les tests unitaires et le développement hors-ligne.
+    Génère des représentations sémantiques déterministes par sac de mots hachés.
     """
 
     def __init__(self, dimension: int = 128) -> None:
@@ -97,9 +112,18 @@ class MockEmbedder(BaseEmbedder):
         return self._dimension
 
     def embed_text(self, text: str) -> List[float]:
-        # Vecteur pseudo-déterministe basé sur le hash du texte
-        val = (abs(hash(text)) % 1000) / 1000.0
-        return [val] * self._dimension
+        """Calcule un vecteur L2 normalisé déterministe."""
+        vec = [0.0] * self.dimension
+        words = text.lower().split()
+        for w in words:
+            h = int(hashlib.sha256(w.encode("utf-8")).hexdigest()[:8], 16)
+            pos = h % self.dimension
+            vec[pos] += 1.0
+
+        norm = math.sqrt(sum(v * v for v in vec))
+        if norm > 0:
+            return [v / norm for v in vec]
+        return [1.0 / math.sqrt(self.dimension)] * self.dimension
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return [self.embed_text(t) for t in texts]

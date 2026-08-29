@@ -3,12 +3,15 @@ app/ai — Couche GenAI, Copilot Industriel et AI Gateway de NouanKanyAI.
 
 Expose l'ensemble des points d'accès unifiés pour l'interaction avec les LLMs (Google Gemini),
 le formatage de contexte industriel, la gestion de mémoire conversationnelle multi-niveaux,
-les pipelines RAG et le système d'outils métier (Function Calling).
+le moteur RAG industriel avancé (multi-collections, hybride dense+BM25, reranker, citations, cache)
+et le système d'outils métier (Function Calling).
 """
 
 from app.ai.assistant import IndustrialCopilot
+from app.ai.citations import Citation, SourceCitationFormatter
 from app.ai.context import IndustrialContextBuilder
 from app.ai.conversation import ConversationManager, ConversationSession
+from app.ai.document_processor import DocumentCollection, SmartTextChunker
 from app.ai.embeddings import BaseEmbedder, GeminiEmbedder, MockEmbedder
 from app.ai.exceptions import (
     AIException,
@@ -30,8 +33,10 @@ from app.ai.memory import (
 )
 from app.ai.prompt_builder import DEFAULT_SYSTEM_INSTRUCTION, PromptBuilder
 from app.ai.prompt_models import BuildingType, MLContext, PromptContext, UserRole
+from app.ai.query_cache import RAGQueryCache
 from app.ai.rag import BaseRAGPipeline, IndustrialRAGPipeline
-from app.ai.retriever import BaseRetriever, InMemoryRetriever
+from app.ai.reranker import BaseReranker, SemanticReranker
+from app.ai.retriever import BaseRetriever, HybridRetriever, InMemoryRetriever
 from app.ai.tools import (
     BaseTool,
     CalculateEnergyCostTool,
@@ -60,6 +65,14 @@ from app.ai.types import (
     ToolDefinition,
     ToolResult,
     UserPreferences,
+)
+from app.ai.vector_store import (
+    BaseVectorStore,
+    InMemoryVectorStore,
+    PgVectorStoreAdapter,
+    QdrantVectorStoreAdapter,
+    cosine_similarity,
+    tokenize,
 )
 
 __all__ = [
@@ -106,8 +119,26 @@ __all__ = [
     "BaseEmbedder",
     "GeminiEmbedder",
     "MockEmbedder",
+    "cosine_similarity",
+    "tokenize",
+    # Vector Stores
+    "BaseVectorStore",
+    "InMemoryVectorStore",
+    "PgVectorStoreAdapter",
+    "QdrantVectorStoreAdapter",
+    # Ingestion, Chunking & Document Collections
+    "DocumentCollection",
+    "SmartTextChunker",
+    # Retrieval, Reranking & Caching
     "BaseRetriever",
+    "HybridRetriever",
     "InMemoryRetriever",
+    "BaseReranker",
+    "SemanticReranker",
+    "RAGQueryCache",
+    # Citations & Provenance
+    "Citation",
+    "SourceCitationFormatter",
     # RAG Pipeline
     "BaseRAGPipeline",
     "IndustrialRAGPipeline",
