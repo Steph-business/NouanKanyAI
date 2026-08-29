@@ -31,6 +31,20 @@ THIN_BORDER = Border(
     bottom=Side(style="thin", color="CBD5E1"),
 )
 
+# Préfixes qu'Excel interprète comme le début d'une formule (CWE-1236 —
+# injection de formule). Un champ libre saisi par un utilisateur (nom de
+# machine, description...) ne doit jamais atterrir tel quel dans une cellule.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _safe_text(value):
+    """Neutralise une valeur susceptible d'être interprétée comme une formule
+    Excel : un guillemet simple en tête force Excel à traiter la cellule comme
+    du texte plutôt que comme une formule, sans changer l'affichage."""
+    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
 
 class XLSXReportExporter(BaseReportExporter):
     """
@@ -54,15 +68,15 @@ class XLSXReportExporter(BaseReportExporter):
         ws_kpi.title = "Synthèse & KPIs"
         ws_kpi.views.sheetView[0].showGridLines = True
 
-        ws_kpi["A1"] = f"NOUANKANY.AI — {report_data.title.upper()}"
+        ws_kpi["A1"] = _safe_text(f"NOUANKANY.AI — {report_data.title.upper()}")
         ws_kpi["A1"].font = TITLE_FONT
-        ws_kpi["A2"] = f"Site : {report_data.site_name} | Période : {report_data.period_start} au {report_data.period_end} | Émis : {report_data.generated_at}"
+        ws_kpi["A2"] = _safe_text(f"Site : {report_data.site_name} | Période : {report_data.period_start} au {report_data.period_end} | Émis : {report_data.generated_at}")
         ws_kpi["A2"].font = Font(name="Arial", size=9, italic=True, color="64748B")
 
         # Résumé exécutif
         ws_kpi["A4"] = "Résumé Exécutif :"
         ws_kpi["A4"].font = BOLD_FONT
-        ws_kpi["A5"] = report_data.executive_summary
+        ws_kpi["A5"] = _safe_text(report_data.executive_summary)
         ws_kpi["A5"].font = REGULAR_FONT
 
         # Tableau des KPIs
@@ -125,13 +139,13 @@ class XLSXReportExporter(BaseReportExporter):
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
         for r_idx, m in enumerate(report_data.machines, start=2):
-            ws_mach[f"A{r_idx}"] = m.machine_name
-            ws_mach[f"B{r_idx}"] = m.category
+            ws_mach[f"A{r_idx}"] = _safe_text(m.machine_name)
+            ws_mach[f"B{r_idx}"] = _safe_text(m.category)
             ws_mach[f"C{r_idx}"] = m.energy_kwh
             ws_mach[f"D{r_idx}"] = m.cost_fcfa
             ws_mach[f"E{r_idx}"] = m.running_hours
-            ws_mach[f"F{r_idx}"] = m.status
-            ws_mach[f"G{r_idx}"] = m.efficiency_grade
+            ws_mach[f"F{r_idx}"] = _safe_text(m.status)
+            ws_mach[f"G{r_idx}"] = _safe_text(m.efficiency_grade)
 
             ws_mach[f"C{r_idx}"].number_format = "#,##0.0"
             ws_mach[f"D{r_idx}"].number_format = "#,##0"
@@ -158,13 +172,13 @@ class XLSXReportExporter(BaseReportExporter):
             cell.font = HEADER_FONT
 
         for r_idx, a in enumerate(report_data.anomalies, start=2):
-            ws_anom[f"A{r_idx}"] = a.incident_id
+            ws_anom[f"A{r_idx}"] = _safe_text(a.incident_id)
             ws_anom[f"B{r_idx}"] = a.timestamp
-            ws_anom[f"C{r_idx}"] = a.equipment
+            ws_anom[f"C{r_idx}"] = _safe_text(a.equipment)
             ws_anom[f"D{r_idx}"] = a.severity.upper()
             ws_anom[f"E{r_idx}"] = a.anomaly_score
-            ws_anom[f"F{r_idx}"] = a.description
-            ws_anom[f"G{r_idx}"] = a.action_taken
+            ws_anom[f"F{r_idx}"] = _safe_text(a.description)
+            ws_anom[f"G{r_idx}"] = _safe_text(a.action_taken)
 
             for c_idx in range(1, 8):
                 cell = ws_anom[f"{get_column_letter(c_idx)}{r_idx}"]
@@ -187,9 +201,9 @@ class XLSXReportExporter(BaseReportExporter):
 
         for r_idx, rec in enumerate(report_data.recommendations, start=2):
             ws_rec[f"A{r_idx}"] = f"P{rec.priority}"
-            ws_rec[f"B{r_idx}"] = rec.title
-            ws_rec[f"C{r_idx}"] = rec.target_equipment
-            ws_rec[f"D{r_idx}"] = rec.description
+            ws_rec[f"B{r_idx}"] = _safe_text(rec.title)
+            ws_rec[f"C{r_idx}"] = _safe_text(rec.target_equipment)
+            ws_rec[f"D{r_idx}"] = _safe_text(rec.description)
             ws_rec[f"E{r_idx}"] = rec.estimated_savings_fcfa
             ws_rec[f"F{r_idx}"] = rec.estimated_savings_kwh
 

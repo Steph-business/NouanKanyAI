@@ -138,14 +138,20 @@ class AIGateway:
             config=gen_config,
         )
 
-        endpoint_url = f"{self.API_BASE_URL}/{active_model}:generateContent?key={self.api_key}"
+        # La clé API part en en-tête (x-goog-api-key), jamais dans l'URL : une clé
+        # en query string finit tôt ou tard dans un log d'accès, un message
+        # d'exception ou un outil de tracing qui capture l'URL de la requête.
+        endpoint_url = f"{self.API_BASE_URL}/{active_model}:generateContent"
 
         try:
             req_data = json.dumps(payload).encode("utf-8")
             request = urllib.request.Request(
                 endpoint_url,
                 data=req_data,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": self.api_key,
+                },
                 method="POST",
             )
 
