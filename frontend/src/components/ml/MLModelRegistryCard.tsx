@@ -1,15 +1,12 @@
 'use client';
 
-/**
- * components/ml/MLModelRegistryCard.tsx — Affichage du registre de modèles avec rechargement à chaud.
- */
-
 import React, { useState } from 'react';
-import { Database, RefreshCw, Cpu, Layers, CheckCircle, Tag, Shield } from 'lucide-react';
+import { Database, RefreshCw, Cpu } from 'lucide-react';
 import { useMLModels } from '@/hooks/use-ml';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
 
 export function MLModelRegistryCard() {
-  const { models, loading, reloading, reload, refresh } = useMLModels();
+  const { models, loading, reloading, reload } = useMLModels();
   const [apiKey, setApiKey] = useState<string>('dev-admin-key');
   const [showKeyInput, setShowKeyInput] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -17,7 +14,7 @@ export function MLModelRegistryCard() {
   const handleReload = async () => {
     try {
       await reload(apiKey);
-      setToast("Modèles ML rechargés avec succès en mémoire !");
+      setToast("Modèles ML rechargés avec succès en mémoire.");
       setTimeout(() => setToast(null), 3500);
     } catch (err: any) {
       setToast(`Échec du rechargement : ${err.message || 'Erreur inconnue'}`);
@@ -26,30 +23,33 @@ export function MLModelRegistryCard() {
   };
 
   return (
-    <div className="glass-card" style={{ padding: '24px' }}>
+    <div className="card-standard" style={{ padding: '24px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(5, 150, 105, 0.25))',
+              borderRadius: '8px',
+              backgroundColor: 'var(--bg-surface)',
+              color: 'var(--accent-cta)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#0284c7',
             }}
           >
             <Database size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--foreground)' }}>
-              Registre des Modèles & Artefacts
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-subtle)', margin: 0 }}>
-              Gestion des versions et rechargement à chaud
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                Registre des Modèles & Artefacts
+              </h3>
+              <ProvenanceBadge type="synthetique" label="Manifeste v2.0" />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              Gestion des versions sérialisées et rechargement à chaud
             </p>
           </div>
         </div>
@@ -57,45 +57,26 @@ export function MLModelRegistryCard() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={() => setShowKeyInput(!showKeyInput)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface-2)',
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-            }}
+            className="btn-ghost"
+            style={{ fontSize: '11px', border: '1px solid var(--border-color)' }}
           >
             {showKeyInput ? 'Masquer Clé' : 'Sécurité Clé'}
           </button>
           <button
             onClick={handleReload}
             disabled={reloading || loading}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: '1px solid rgba(5, 150, 105, 0.3)',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: '#fff',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className="btn-cta"
+            style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}
           >
-            <RefreshCw size={12} className={reloading ? 'spin' : ''} style={{ animation: reloading ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw size={12} className={reloading ? 'spin-slow' : ''} />
             <span>{reloading ? 'Rechargement...' : 'Recharger Modèles'}</span>
           </button>
         </div>
       </div>
 
       {showKeyInput && (
-        <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--surface-border)' }}>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+        <div style={{ marginBottom: '14px', padding: '12px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Clé Administrateur ML (X-API-Key)
           </label>
           <input
@@ -103,15 +84,8 @@ export function MLModelRegistryCard() {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="dev-admin-key"
-            style={{
-              width: '100%',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '12px',
-              color: 'var(--foreground)',
-            }}
+            className="input-standard"
+            style={{ minHeight: '36px', padding: '6px 10px', fontSize: '12px' }}
           />
         </div>
       )}
@@ -120,11 +94,11 @@ export function MLModelRegistryCard() {
         <div
           style={{
             marginBottom: '14px',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            background: toast.includes('succès') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-            border: `1px solid ${toast.includes('succès') ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-            color: toast.includes('succès') ? '#059669' : '#dc2626',
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: toast.includes('succès') ? 'var(--status-success-bg)' : 'var(--status-alert-bg)',
+            border: `1px solid ${toast.includes('succès') ? 'var(--status-success-border)' : 'var(--status-alert-border)'}`,
+            color: toast.includes('succès') ? 'var(--status-success)' : 'var(--status-alert)',
             fontSize: '12px',
             fontWeight: 600,
           }}
@@ -140,9 +114,9 @@ export function MLModelRegistryCard() {
             key={idx}
             style={{
               padding: '14px',
-              borderRadius: '10px',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-color)',
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
@@ -150,8 +124,8 @@ export function MLModelRegistryCard() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Cpu size={16} color="#059669" />
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
+                <Cpu size={16} color="var(--accent-cta)" />
+                <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)' }}>
                   {m.name}
                 </span>
                 <span
@@ -160,8 +134,10 @@ export function MLModelRegistryCard() {
                     fontWeight: 700,
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    background: 'rgba(5, 150, 105, 0.1)',
-                    color: '#059669',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'IBM Plex Mono, monospace',
                   }}
                 >
                   v{m.version}
@@ -170,13 +146,14 @@ export function MLModelRegistryCard() {
 
               <span
                 style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  background: m.status === 'PROMOTED' || m.status === 'PASS' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                  color: m.status === 'PROMOTED' || m.status === 'PASS' ? '#059669' : '#d97706',
-                  border: `1px solid ${m.status === 'PROMOTED' || m.status === 'PASS' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  backgroundColor: m.status === 'PROMOTED' || m.status === 'PASS' ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
+                  color: m.status === 'PROMOTED' || m.status === 'PASS' ? 'var(--status-success)' : 'var(--status-warning)',
+                  border: `1px solid ${m.status === 'PROMOTED' || m.status === 'PASS' ? 'var(--status-success-border)' : 'var(--status-warning-border)'}`,
+                  letterSpacing: '0.04em',
                 }}
               >
                 {m.status || 'QUALIFIED'}
@@ -193,9 +170,10 @@ export function MLModelRegistryCard() {
                       fontSize: '10px',
                       padding: '2px 6px',
                       borderRadius: '4px',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--surface-border)',
-                      color: 'var(--text-subtle)',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-muted)',
+                      fontFamily: 'IBM Plex Mono, monospace',
                     }}
                   >
                     {feat}

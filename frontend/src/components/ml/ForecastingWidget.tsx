@@ -1,18 +1,16 @@
 'use client';
 
-/**
- * components/ml/ForecastingWidget.tsx — Widget interactif de prévision de consommation énergétique (XGBoost).
- */
-
 import React, { useState } from 'react';
-import { Zap, TrendingUp, Clock, Cpu, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { TrendingUp, Clock, Cpu, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { usePrediction } from '@/hooks/use-ml';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
 
 interface ForecastingWidgetProps {
   initialPower?: number;
   initialTemp?: number;
   machineId?: string;
   onPredictionComplete?: (kw: number) => void;
+  style?: React.CSSProperties;
 }
 
 export function ForecastingWidget({
@@ -20,6 +18,7 @@ export function ForecastingWidget({
   initialTemp = 30.0,
   machineId,
   onPredictionComplete,
+  style = {},
 }: ForecastingWidgetProps) {
   const [powerKw, setPowerKw] = useState<number>(initialPower);
   const [temperatureC, setTemperatureC] = useState<number>(initialTemp);
@@ -47,59 +46,53 @@ export function ForecastingWidget({
     }
   };
 
-  // Calcul du coût estimé t+1h en Francs CFA (Tarif moyen CIE ~68 FCFA/kWh)
   const predictedKw = data?.prediction ?? null;
   const estimatedCostFcfa = predictedKw !== null ? Math.round(predictedKw * 68) : null;
   const deltaPower = predictedKw !== null ? predictedKw - powerKw : null;
 
   return (
-    <div className="glass-card" style={{ padding: '24px', position: 'relative' }}>
+    <div className="card-standard" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', ...style }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25))',
+              borderRadius: '8px',
+              backgroundColor: 'var(--status-success-bg)',
+              color: 'var(--status-success)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#059669',
             }}
           >
             <TrendingUp size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--foreground)' }}>
-              Prévision Énergétique t+1h
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-subtle)', margin: 0 }}>
-              Modèle prédictif XGBoost v2.0.0
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                Prévision Énergétique t+1h
+              </h3>
+              <ProvenanceBadge type="synthetique" label="XGBoost v2.0" />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              Dataset d'entraînement synthétique • Inférence multi-lag
             </p>
           </div>
         </div>
 
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            padding: '3px 8px',
-            borderRadius: '6px',
-            background: 'rgba(2, 132, 199, 0.08)',
-            color: '#0284c7',
-            border: '1px solid rgba(2, 132, 199, 0.2)',
-          }}
-        >
-          {machineId ? `Machine: ${machineId}` : 'Multi-sources'}
-        </span>
+        {machineId && (
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+            Machine : {machineId}
+          </span>
+        )}
       </div>
 
       {/* Formulaire de saisie interactive */}
       <form onSubmit={handleRunForecast} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '6px' }}>
             Puissance actuelle (kW)
           </label>
           <input
@@ -109,21 +102,12 @@ export function ForecastingWidget({
             max="3000"
             value={powerKw}
             onChange={(e) => setPowerKw(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: 'var(--foreground)',
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '6px' }}>
             Température ambiante (°C)
           </label>
           <input
@@ -133,16 +117,7 @@ export function ForecastingWidget({
             max="120"
             value={temperatureC}
             onChange={(e) => setTemperatureC(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '14px',
-              fontWeight: 600,
-              color: 'var(--foreground)',
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
@@ -160,14 +135,13 @@ export function ForecastingWidget({
                 setPowerKw(preset.p);
                 setTemperatureC(preset.t);
               }}
+              className="btn-ghost"
               style={{
                 fontSize: '11px',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                border: '1px solid var(--surface-border)',
-                background: 'var(--surface-2)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-surface)',
               }}
             >
               {preset.label}
@@ -179,26 +153,18 @@ export function ForecastingWidget({
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary"
-          style={{
-            gridColumn: '1 / -1',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            fontSize: '13px',
-          }}
+          className="btn-cta"
+          style={{ gridColumn: '1 / -1' }}
         >
           {loading ? (
             <>
-              <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-              <span>Calcul d'inférence en cours...</span>
+              <Loader2 size={16} className="spin-slow" />
+              <span>Calcul d'inférence XGBoost en cours...</span>
             </>
           ) : (
             <>
               <Sparkles size={16} />
-              <span>Calculer la prévision XGBoost</span>
+              <span>Calculer la prévision énergétique</span>
             </>
           )}
         </button>
@@ -209,10 +175,10 @@ export function ForecastingWidget({
         <div
           style={{
             padding: '10px 14px',
-            borderRadius: '8px',
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            color: '#dc2626',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'var(--status-alert-bg)',
+            border: '1px solid var(--status-alert-border)',
+            color: 'var(--status-alert)',
             fontSize: '12px',
             display: 'flex',
             alignItems: 'center',
@@ -228,35 +194,45 @@ export function ForecastingWidget({
       {/* Résultat d'inférence */}
       {data && (
         <div
+          className="animate-fade-in"
           style={{
             padding: '16px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(2, 132, 199, 0.06))',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Charge Prévue (t+1h)
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Charge Prévue à t+1h
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '28px', fontWeight: 800, color: '#059669', fontFamily: 'Outfit, sans-serif' }}>
+                <span
+                  className="tabular-numbers"
+                  style={{
+                    fontSize: '28px',
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    fontFamily: 'IBM Plex Mono, monospace',
+                  }}
+                >
                   {data.prediction.toFixed(2)}
                 </span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#059669' }}>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   {data.unit}
                 </span>
                 {deltaPower !== null && (
                   <span
+                    className="tabular-numbers"
                     style={{
                       fontSize: '11px',
                       fontWeight: 700,
-                      color: deltaPower >= 0 ? '#ea580c' : '#059669',
+                      color: deltaPower >= 0 ? 'var(--accent-cost)' : 'var(--status-success)',
                       marginLeft: '4px',
                     }}
                   >
-                    ({deltaPower >= 0 ? '+' : ''}{deltaPower.toFixed(1)} kW vs actuelle)
+                    ({deltaPower >= 0 ? '+' : ''}{deltaPower.toFixed(1)} kW)
                   </span>
                 )}
               </div>
@@ -264,9 +240,9 @@ export function ForecastingWidget({
 
             {estimatedCostFcfa !== null && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-subtle)' }}>Coût estimé / heure</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>
-                  ~{estimatedCostFcfa.toLocaleString('fr-FR')} FCFA
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Coût estimé CIE</div>
+                <div className="tabular-numbers" style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                  ~{estimatedCostFcfa.toLocaleString('fr-FR')} FCFA / h
                 </div>
               </div>
             )}
@@ -278,22 +254,22 @@ export function ForecastingWidget({
               display: 'flex',
               gap: '12px',
               flexWrap: 'wrap',
-              fontSize: '10px',
-              color: 'var(--text-subtle)',
-              borderTop: '1px solid rgba(16, 185, 129, 0.15)',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              borderTop: '1px solid var(--border-subtle)',
               paddingTop: '8px',
               marginTop: '8px',
             }}
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <Clock size={12} />
-              Latence : <strong>{data.metadata.execution_time_ms} ms</strong>
+              Latence : <strong className="tabular-numbers">{data.metadata.execution_time_ms} ms</strong>
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <Cpu size={12} />
               {data.model_name} (v{data.model_version})
             </span>
-            <span title={`UUID: ${data.request_id}`} style={{ cursor: 'help' }}>
+            <span title={`UUID: ${data.request_id}`} style={{ cursor: 'help', fontFamily: 'IBM Plex Mono, monospace' }}>
               ID: {data.request_id.slice(0, 8)}...
             </span>
           </div>

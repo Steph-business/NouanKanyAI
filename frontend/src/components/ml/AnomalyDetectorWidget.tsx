@@ -1,13 +1,10 @@
 'use client';
 
-/**
- * components/ml/AnomalyDetectorWidget.tsx — Widget interactif de détection d'anomalies (Isolation Forest).
- */
-
 import React, { useState } from 'react';
-import { ShieldAlert, ShieldCheck, Activity, AlertTriangle, Loader2, Gauge, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
 import { useAnomalyDetection } from '@/hooks/use-ml';
 import { AnomalySeverity } from '@/lib/ml-api';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
 
 interface AnomalyDetectorWidgetProps {
   initialPower?: number;
@@ -16,6 +13,7 @@ interface AnomalyDetectorWidgetProps {
   initialPressure?: number;
   machineId?: string;
   onAnomalyDetected?: (severity: AnomalySeverity, isAnomaly: boolean) => void;
+  style?: React.CSSProperties;
 }
 
 export function AnomalyDetectorWidget({
@@ -25,6 +23,7 @@ export function AnomalyDetectorWidget({
   initialPressure = 1.5,
   machineId,
   onAnomalyDetected,
+  style = {},
 }: AnomalyDetectorWidgetProps) {
   const [powerKw, setPowerKw] = useState<number>(initialPower);
   const [temperatureC, setTemperatureC] = useState<number>(initialTemp);
@@ -55,64 +54,59 @@ export function AnomalyDetectorWidget({
   const getSeverityBadge = (severity: AnomalySeverity) => {
     switch (severity) {
       case 'critique':
-        return { bg: 'rgba(220, 38, 38, 0.12)', text: '#dc2626', border: 'rgba(220, 38, 38, 0.3)', label: 'CRITIQUE' };
+        return { bg: 'var(--status-alert-bg)', text: 'var(--status-alert)', border: 'var(--status-alert-border)', label: 'CRITIQUE' };
       case 'modérée':
-        return { bg: 'rgba(234, 88, 12, 0.12)', text: '#ea580c', border: 'rgba(234, 88, 12, 0.3)', label: 'MODÉRÉE' };
+        return { bg: 'var(--status-warning-bg)', text: 'var(--status-warning)', border: 'var(--status-warning-border)', label: 'MODÉRÉE' };
       case 'faible':
-        return { bg: 'rgba(245, 158, 11, 0.12)', text: '#d97706', border: 'rgba(245, 158, 11, 0.3)', label: 'FAIBLE' };
+        return { bg: 'var(--status-warning-bg)', text: 'var(--status-warning)', border: 'var(--status-warning-border)', label: 'FAIBLE' };
       default:
-        return { bg: 'rgba(16, 185, 129, 0.12)', text: '#059669', border: 'rgba(16, 185, 129, 0.3)', label: 'NORMAL' };
+        return { bg: 'var(--status-success-bg)', text: 'var(--status-success)', border: 'var(--status-success-border)', label: 'NORMAL' };
     }
   };
 
   return (
-    <div className="glass-card" style={{ padding: '24px', position: 'relative' }}>
+    <div className="card-standard" style={{ padding: '24px', backgroundColor: 'var(--bg-card)', ...style }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.15), rgba(220, 38, 38, 0.25))',
+              borderRadius: '8px',
+              backgroundColor: 'var(--status-warning-bg)',
+              color: 'var(--status-warning)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ea580c',
             }}
           >
             <ShieldAlert size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--foreground)' }}>
-              Détection d'Anomalies
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-subtle)', margin: 0 }}>
-              Algorithme Isolation Forest v2.0.0
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                Détection d'Anomalies
+              </h3>
+              <ProvenanceBadge type="synthetique" label="Isolation Forest v2.0" />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              Classification multi-paramétrique (puissance, thermique, vibration, pression)
             </p>
           </div>
         </div>
 
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            padding: '3px 8px',
-            borderRadius: '6px',
-            background: 'rgba(234, 88, 12, 0.08)',
-            color: '#ea580c',
-            border: '1px solid rgba(234, 88, 12, 0.2)',
-          }}
-        >
-          {machineId ? `Machine: ${machineId}` : 'Capteurs en direct'}
-        </span>
+        {machineId && (
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+            Machine : {machineId}
+          </span>
+        )}
       </div>
 
       {/* Formulaire capteurs */}
       <form onSubmit={handleScan} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Puissance (kW)
           </label>
           <input
@@ -120,20 +114,12 @@ export function AnomalyDetectorWidget({
             step="0.1"
             value={powerKw}
             onChange={(e) => setPowerKw(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '13px',
-              fontWeight: 600,
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Température (°C)
           </label>
           <input
@@ -141,20 +127,12 @@ export function AnomalyDetectorWidget({
             step="0.5"
             value={temperatureC}
             onChange={(e) => setTemperatureC(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '13px',
-              fontWeight: 600,
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Vibrations (Hz)
           </label>
           <input
@@ -162,20 +140,12 @@ export function AnomalyDetectorWidget({
             step="0.1"
             value={vibrationHz}
             onChange={(e) => setVibrationHz(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '13px',
-              fontWeight: 600,
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Pression (bar)
           </label>
           <input
@@ -183,15 +153,7 @@ export function AnomalyDetectorWidget({
             step="0.1"
             value={pressureBar}
             onChange={(e) => setPressureBar(parseFloat(e.target.value) || 0)}
-            style={{
-              width: '100%',
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--background-alt)',
-              fontSize: '13px',
-              fontWeight: 600,
-            }}
+            className="input-standard tabular-numbers"
           />
         </div>
 
@@ -211,14 +173,13 @@ export function AnomalyDetectorWidget({
                 setVibrationHz(sc.v);
                 setPressureBar(sc.pr);
               }}
+              className="btn-ghost"
               style={{
                 fontSize: '11px',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                border: '1px solid var(--surface-border)',
-                background: 'var(--surface-2)',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-surface)',
               }}
             >
               {sc.label}
@@ -229,28 +190,18 @@ export function AnomalyDetectorWidget({
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary"
-          style={{
-            gridColumn: '1 / -1',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            fontSize: '13px',
-            background: 'linear-gradient(135deg, #ea580c 0%, #dc2626 100%)',
-            borderColor: 'rgba(234, 88, 12, 0.3)',
-          }}
+          className="btn-cta"
+          style={{ gridColumn: '1 / -1' }}
         >
           {loading ? (
             <>
-              <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-              <span>Analyse sensorielle en cours...</span>
+              <Loader2 size={16} className="spin-slow" />
+              <span>Diagnostic Isolation Forest en cours...</span>
             </>
           ) : (
             <>
               <ShieldAlert size={16} />
-              <span>Diagnostiquer avec Isolation Forest</span>
+              <span>Diagnostiquer les anomalies</span>
             </>
           )}
         </button>
@@ -260,11 +211,11 @@ export function AnomalyDetectorWidget({
       {error && (
         <div
           style={{
-            padding: '8px 12px',
-            borderRadius: '8px',
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.25)',
-            color: '#dc2626',
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'var(--status-alert-bg)',
+            border: '1px solid var(--status-alert-border)',
+            color: 'var(--status-alert)',
             fontSize: '12px',
             marginBottom: '12px',
           }}
@@ -276,28 +227,27 @@ export function AnomalyDetectorWidget({
       {/* Résultat d'anomalie */}
       {data && (
         <div
+          className="animate-fade-in"
           style={{
-            padding: '14px',
-            borderRadius: '12px',
-            background: data.is_anomaly
-              ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(234, 88, 12, 0.06))'
-              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(2, 132, 199, 0.06))',
-            border: `1px solid ${data.is_anomaly ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+            padding: '16px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--bg-surface)',
+            border: `1px solid ${data.is_anomaly ? 'var(--status-alert-border)' : 'var(--status-success-border)'}`,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {data.is_anomaly ? (
-                <ShieldAlert size={22} color="#dc2626" />
+                <ShieldAlert size={22} color="var(--status-alert)" />
               ) : (
-                <ShieldCheck size={22} color="#059669" />
+                <ShieldCheck size={22} color="var(--status-success)" />
               )}
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: data.is_anomaly ? '#dc2626' : '#059669' }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: data.is_anomaly ? 'var(--status-alert)' : 'var(--status-success)' }}>
                   {data.is_anomaly ? 'ANOMALIE COMPORTEMENTALE DÉTECTÉE' : 'COMPORTEMENT NOMINAL NORMAL'}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                  Score de décision : <strong>{data.anomaly_score.toFixed(4)}</strong>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  Score de décision : <strong className="tabular-numbers">{data.anomaly_score.toFixed(4)}</strong>
                 </div>
               </div>
             </div>
@@ -311,7 +261,7 @@ export function AnomalyDetectorWidget({
                     borderRadius: '20px',
                     fontSize: '11px',
                     fontWeight: 800,
-                    background: badge.bg,
+                    backgroundColor: badge.bg,
                     color: badge.text,
                     border: `1px solid ${badge.border}`,
                   }}
@@ -323,18 +273,18 @@ export function AnomalyDetectorWidget({
           </div>
 
           {/* Barres de probabilité et confiance */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '8px' }}>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 <span>Probabilité d'anomalie</span>
-                <strong>{(data.anomaly_probability * 100).toFixed(1)}%</strong>
+                <strong className="tabular-numbers">{(data.anomaly_probability * 100).toFixed(1)}%</strong>
               </div>
-              <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'var(--surface-border)', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '6px', borderRadius: '3px', backgroundColor: 'var(--border-color)', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${data.anomaly_probability * 100}%`,
                     height: '100%',
-                    background: data.is_anomaly ? '#dc2626' : '#059669',
+                    backgroundColor: data.is_anomaly ? 'var(--status-alert)' : 'var(--status-success)',
                     borderRadius: '3px',
                   }}
                 />
@@ -342,16 +292,16 @@ export function AnomalyDetectorWidget({
             </div>
 
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 <span>Indice de Confiance</span>
-                <strong>{(data.confidence * 100).toFixed(1)}%</strong>
+                <strong className="tabular-numbers">{(data.confidence * 100).toFixed(1)}%</strong>
               </div>
-              <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'var(--surface-border)', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '6px', borderRadius: '3px', backgroundColor: 'var(--border-color)', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${data.confidence * 100}%`,
                     height: '100%',
-                    background: '#0284c7',
+                    backgroundColor: 'var(--cie-domestique)',
                     borderRadius: '3px',
                   }}
                 />
@@ -359,9 +309,9 @@ export function AnomalyDetectorWidget({
             </div>
           </div>
 
-          <div style={{ fontSize: '10px', color: 'var(--text-subtle)', display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-            <span>Latence: {data.metadata.execution_time_ms} ms</span>
-            <span>ID: {data.request_id.slice(0, 8)}...</span>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginTop: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '6px' }}>
+            <span>Latence : <strong className="tabular-numbers">{data.metadata.execution_time_ms} ms</strong></span>
+            <span style={{ fontFamily: 'IBM Plex Mono, monospace' }}>ID : {data.request_id.slice(0, 8)}...</span>
           </div>
         </div>
       )}

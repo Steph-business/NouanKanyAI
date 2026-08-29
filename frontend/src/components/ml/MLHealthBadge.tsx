@@ -1,25 +1,35 @@
 'use client';
 
-/**
- * components/ml/MLHealthBadge.tsx — Badge d'état opérationnel et de santé de la couche ML.
- */
-
 import React from 'react';
-import { Activity, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, AlertOctagon, RefreshCw } from 'lucide-react';
 import { useMLHealth } from '@/hooks/use-ml';
 
 interface MLHealthBadgeProps {
   showDetails?: boolean;
   onRefreshClick?: () => void;
+  style?: React.CSSProperties;
 }
 
-export function MLHealthBadge({ showDetails = false }: MLHealthBadgeProps) {
+export function MLHealthBadge({ showDetails = false, style = {} }: MLHealthBadgeProps) {
   const { health, loading, refresh } = useMLHealth({ pollingInterval: 8000 });
 
   if (loading && !health) {
     return (
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: 'rgba(2, 132, 199, 0.08)', border: '1px solid rgba(2, 132, 199, 0.2)', fontSize: '12px', color: '#0284c7' }}>
-        <RefreshCw size={12} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-full)',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-color)',
+          fontSize: '11px',
+          color: 'var(--text-secondary)',
+          ...style,
+        }}
+      >
+        <RefreshCw size={11} className="spin-slow" />
         <span>Vérification IA...</span>
       </div>
     );
@@ -31,25 +41,25 @@ export function MLHealthBadge({ showDetails = false }: MLHealthBadgeProps) {
 
   const config = isHealthy
     ? {
-        bg: 'rgba(16, 185, 129, 0.1)',
-        border: 'rgba(16, 185, 129, 0.25)',
-        text: '#059669',
+        bg: 'var(--status-success-bg)',
+        border: 'var(--status-success-border)',
+        text: 'var(--status-success)',
         icon: CheckCircle2,
         label: 'IA Opérationnelle',
       }
     : isDegraded
     ? {
-        bg: 'rgba(245, 158, 11, 0.1)',
-        border: 'rgba(245, 158, 11, 0.25)',
-        text: '#d97706',
+        bg: 'var(--status-warning-bg)',
+        border: 'var(--status-warning-border)',
+        text: 'var(--status-warning)',
         icon: AlertTriangle,
         label: 'IA Dégradée',
       }
     : {
-        bg: 'rgba(239, 68, 68, 0.1)',
-        border: 'rgba(239, 68, 68, 0.25)',
-        text: '#dc2626',
-        icon: XCircle,
+        bg: 'var(--status-alert-bg)',
+        border: 'var(--status-alert-border)',
+        text: 'var(--status-alert)',
+        icon: AlertOctagon,
         label: 'IA Indisponible',
       };
 
@@ -61,37 +71,45 @@ export function MLHealthBadge({ showDetails = false }: MLHealthBadgeProps) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '6px',
         padding: '5px 12px',
-        borderRadius: '9999px',
-        background: config.bg,
+        borderRadius: 'var(--radius-full)',
+        backgroundColor: config.bg,
         border: `1px solid ${config.border}`,
-        fontSize: '12px',
-        fontWeight: 600,
+        fontSize: '11px',
+        fontWeight: 700,
         color: config.text,
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: 'all 0.15s ease',
+        userSelect: 'none',
+        ...style,
       }}
       title={`Modèles: ${health?.models_loaded ? 'Chargés' : 'Absents'} | Registre: ${health?.registry_loaded ? 'OK' : 'Non'} | v${health?.version || '2.0.0'}`}
       onClick={() => refresh()}
     >
-      <span style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-        <span
-          style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            backgroundColor: config.text,
-            marginRight: '6px',
-            boxShadow: `0 0 6px ${config.text}`,
-          }}
-        />
-        <Icon size={14} style={{ marginRight: '4px' }} />
-        <span>{config.label}</span>
-      </span>
+      <span
+        style={{
+          width: '6px',
+          height: '6px',
+          borderRadius: '50%',
+          backgroundColor: config.text,
+          boxShadow: `0 0 5px ${config.text}`,
+        }}
+      />
+      <Icon size={12} strokeWidth={2.5} />
+      <span>{config.label}</span>
 
       {showDetails && (
-        <span style={{ fontSize: '10px', opacity: 0.85, paddingLeft: '4px', borderLeft: `1px solid ${config.border}` }}>
+        <span
+          className="tabular-numbers"
+          style={{
+            fontSize: '10px',
+            opacity: 0.85,
+            paddingLeft: '6px',
+            borderLeft: `1px solid ${config.border}`,
+            fontFamily: 'IBM Plex Mono, monospace',
+          }}
+        >
           v{health?.version || '2.0'} {durationMs ? `(${durationMs.toFixed(1)}ms)` : ''}
         </span>
       )}

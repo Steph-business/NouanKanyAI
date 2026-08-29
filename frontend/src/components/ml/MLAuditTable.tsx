@@ -1,12 +1,9 @@
 'use client';
 
-/**
- * components/ml/MLAuditTable.tsx — Tableau d'audit et traçabilité des inférences IA en direct.
- */
-
 import React, { useState } from 'react';
-import { History, CheckCircle2, AlertTriangle, XCircle, RefreshCw, Filter, ShieldCheck } from 'lucide-react';
+import { History, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import { useMLAuditLogs } from '@/hooks/use-ml';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
 
 export function MLAuditTable() {
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -22,7 +19,7 @@ export function MLAuditTable() {
   });
 
   return (
-    <div className="glass-card" style={{ padding: '24px' }}>
+    <div className="card-standard" style={{ padding: '24px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -30,22 +27,25 @@ export function MLAuditTable() {
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(2, 132, 199, 0.25))',
+              borderRadius: '8px',
+              backgroundColor: 'var(--bg-surface)',
+              color: 'var(--accent-cta)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#059669',
             }}
           >
             <History size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--foreground)' }}>
-              Journal d'Audit des Inférences IA
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-subtle)', margin: 0 }}>
-              Traçabilité déterministe, horodatage UTC et latence par requête
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                Journal d'Audit des Inférences IA
+              </h3>
+              <ProvenanceBadge type="mesure" label="Horodaté UTC" />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+              Traçabilité déterministe avec hachage cryptographique et latence
             </p>
           </div>
         </div>
@@ -55,14 +55,8 @@ export function MLAuditTable() {
           <select
             value={operationFilter}
             onChange={(e) => setOperationFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface-2)',
-              fontSize: '11px',
-              color: 'var(--foreground)',
-            }}
+            className="input-standard"
+            style={{ minHeight: '34px', padding: '4px 10px', fontSize: '12px', width: 'auto' }}
           >
             <option value="">Toutes Opérations</option>
             <option value="forecasting">Prévisions (XGBoost)</option>
@@ -72,14 +66,8 @@ export function MLAuditTable() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface-2)',
-              fontSize: '11px',
-              color: 'var(--foreground)',
-            }}
+            className="input-standard"
+            style={{ minHeight: '34px', padding: '4px 10px', fontSize: '12px', width: 'auto' }}
           >
             <option value="">Tous Statuts</option>
             <option value="SUCCESS">Succès (SUCCESS)</option>
@@ -89,17 +77,8 @@ export function MLAuditTable() {
 
           <button
             onClick={() => refresh()}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
-              fontSize: '11px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
+            className="btn-ghost"
+            style={{ minHeight: '34px', padding: '4px 10px', fontSize: '11px', border: '1px solid var(--border-color)' }}
           >
             <RefreshCw size={11} />
             <span>Rafraîchir</span>
@@ -109,21 +88,21 @@ export function MLAuditTable() {
 
       {/* Table responsive */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+        <table className="data-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--surface-border)', color: 'var(--text-subtle)', fontSize: '11px' }}>
-              <th style={{ padding: '8px 10px' }}>Horodatage</th>
-              <th style={{ padding: '8px 10px' }}>Opération</th>
-              <th style={{ padding: '8px 10px' }}>Modèle</th>
-              <th style={{ padding: '8px 10px' }}>Latence</th>
-              <th style={{ padding: '8px 10px' }}>Statut</th>
-              <th style={{ padding: '8px 10px' }}>Request ID</th>
+            <tr>
+              <th>Horodatage</th>
+              <th>Opération</th>
+              <th>Modèle</th>
+              <th>Latence</th>
+              <th>Statut</th>
+              <th>Request ID</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-subtle)' }}>
+                <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                   {loading ? "Chargement des enregistrements d'audit..." : "Aucune transaction d'inférence enregistrée."}
                 </td>
               </tr>
@@ -135,44 +114,46 @@ export function MLAuditTable() {
                 const isValFailed = record.status === 'VALIDATION_FAILED';
 
                 return (
-                  <tr key={record.audit_id} style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--foreground)' }}>
+                  <tr key={record.audit_id}>
+                    <td className="tabular-numbers" style={{ fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
                       {formattedTime}
                     </td>
-                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>
+                    <td style={{ fontWeight: 600 }}>
                       <span
                         style={{
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          background: record.operation === 'forecasting' ? 'rgba(5, 150, 105, 0.08)' : 'rgba(234, 88, 12, 0.08)',
-                          color: record.operation === 'forecasting' ? '#059669' : '#ea580c',
+                          backgroundColor: record.operation === 'forecasting' ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
+                          color: record.operation === 'forecasting' ? 'var(--status-success)' : 'var(--status-warning)',
+                          fontSize: '11px',
+                          fontWeight: 700,
                         }}
                       >
                         {record.operation === 'forecasting' ? 'Prévision' : 'Anomalie'}
                       </span>
                     </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
                       {record.model_name.replace('_', ' ')}
                     </td>
-                    <td style={{ padding: '8px 10px', fontWeight: 700, color: record.execution_time_ms < 50 ? '#059669' : '#ea580c' }}>
+                    <td className="tabular-numbers" style={{ fontWeight: 700, color: record.execution_time_ms < 50 ? 'var(--status-success)' : 'var(--accent-cost)', fontFamily: 'IBM Plex Mono, monospace' }}>
                       {record.execution_time_ms} ms
                     </td>
-                    <td style={{ padding: '8px 10px' }}>
+                    <td>
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '4px',
                           fontSize: '11px',
-                          fontWeight: 700,
-                          color: isSuccess ? '#059669' : isValFailed ? '#d97706' : '#dc2626',
+                          fontWeight: 800,
+                          color: isSuccess ? 'var(--status-success)' : isValFailed ? 'var(--status-warning)' : 'var(--status-alert)',
                         }}
                       >
                         {isSuccess ? <CheckCircle2 size={13} /> : isValFailed ? <AlertTriangle size={13} /> : <XCircle size={13} />}
                         {record.status}
                       </span>
                     </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-subtle)', fontFamily: 'monospace', fontSize: '11px' }}>
+                    <td className="tabular-numbers" style={{ color: 'var(--text-muted)', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px' }}>
                       {record.request_id ? `${record.request_id.slice(0, 8)}...` : 'N/A'}
                     </td>
                   </tr>

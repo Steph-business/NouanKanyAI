@@ -1,21 +1,18 @@
 'use client';
 
-/**
- * components/ml/MLMetricsDashboard.tsx — Tableau de bord des métriques d'inférence, observabilité et qualité ML.
- */
-
 import React from 'react';
-import { Activity, Zap, ShieldAlert, Clock, RefreshCw, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Activity, ShieldAlert, Clock, RefreshCw, CheckCircle2, TrendingUp } from 'lucide-react';
 import { useMLMetrics } from '@/hooks/use-ml';
+import { ProvenanceBadge } from '@/components/ui/ProvenanceBadge';
 
 export function MLMetricsDashboard() {
   const { metrics, loading, refresh } = useMLMetrics({ pollingInterval: 6000 });
 
   if (loading && !metrics) {
     return (
-      <div className="glass-card" style={{ padding: '30px', textAlign: 'center' }}>
-        <RefreshCw size={24} className="spin" style={{ animation: 'spin 1s linear infinite', color: '#059669', margin: '0 auto 12px' }} />
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Chargement des métriques d'observabilité IA...</p>
+      <div className="card-standard" style={{ padding: '36px', textAlign: 'center' }}>
+        <RefreshCw size={24} className="spin-slow" style={{ color: 'var(--accent-cta)', margin: '0 auto 12px' }} />
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Chargement de l'observabilité MLOps en temps réel...</p>
       </div>
     );
   }
@@ -27,32 +24,24 @@ export function MLMetricsDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header avec action de rafraîchissement */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--foreground)' }}>
-            Observabilité & Métriques IA en Direct
-          </h2>
-          <p style={{ fontSize: '12px', color: 'var(--text-subtle)', margin: 0 }}>
-            Télémétrie opérationnelle des modèles XGBoost et Isolation Forest
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              Observabilité & Télémétrie MLOps
+            </h2>
+            <ProvenanceBadge type="synthetique" label="Dataset Synthétique" />
+          </div>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+            Métriques d'exécution temps réel, percentiles de latence et scores de qualité
           </p>
         </div>
 
         <button
           onClick={() => refresh()}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: '1px solid var(--surface-border)',
-            background: 'var(--surface)',
-            color: 'var(--text-muted)',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
+          className="btn-outline"
+          style={{ minHeight: '36px', padding: '6px 14px', fontSize: '12px' }}
         >
           <RefreshCw size={12} />
           <span>Actualiser</span>
@@ -60,102 +49,112 @@ export function MLMetricsDashboard() {
       </div>
 
       {/* Cartes KPI Temps Réel */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         {/* Total Inférences */}
-        <div className="glass-card" style={{ padding: '16px' }}>
+        <div className="card-standard" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-subtle)', fontWeight: 600 }}>Inférences Totales</span>
-            <Activity size={18} color="#0284c7" />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inférences Totales</span>
+            <Activity size={18} color="var(--cie-domestique)" />
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--foreground)', fontFamily: 'Outfit, sans-serif' }}>
+          <div className="tabular-numbers" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
             {usage?.total_requests ?? 0}
           </div>
-          <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px', fontWeight: 600 }}>
-            {usage?.requests_last_minute ?? 0} req / dernière minute
+          <div style={{ fontSize: '12px', color: 'var(--status-success)', marginTop: '4px', fontWeight: 600 }}>
+            {usage?.requests_last_minute ?? 0} req / dernière min
           </div>
         </div>
 
-        {/* Latence Moyenne & Percentiles */}
-        <div className="glass-card" style={{ padding: '16px' }}>
+        {/* Latence Moyenne */}
+        <div className="card-standard" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-subtle)', fontWeight: 600 }}>Latence Moyenne</span>
-            <Clock size={18} color="#059669" />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latence Moyenne</span>
+            <Clock size={18} color="var(--status-success)" />
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--foreground)', fontFamily: 'Outfit, sans-serif' }}>
-            {perf?.avg_execution_time_ms ?? 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>ms</span>
+          <div className="tabular-numbers" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+            {perf?.avg_execution_time_ms ?? 0} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>ms</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px' }}>
-            p50: <strong>{perf?.p50_ms ?? 0}ms</strong> | p95: <strong>{perf?.p95_ms ?? 0}ms</strong>
+          <div className="tabular-numbers" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            p50 : <strong>{perf?.p50_ms ?? 0}ms</strong> | p95 : <strong>{perf?.p95_ms ?? 0}ms</strong>
           </div>
         </div>
 
-        {/* Taux de Détection d'Anomalies */}
-        <div className="glass-card" style={{ padding: '16px' }}>
+        {/* Taux Anomalies */}
+        <div className="card-standard" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-subtle)', fontWeight: 600 }}>Taux d'Anomalies</span>
-            <ShieldAlert size={18} color="#ea580c" />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Taux d'Anomalies</span>
+            <ShieldAlert size={18} color="var(--accent-cost)" />
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--foreground)', fontFamily: 'Outfit, sans-serif' }}>
-            {((usage?.anomaly_rate ?? 0) * 100).toFixed(1)} <span style={{ fontSize: '14px', fontWeight: 600 }}>%</span>
+          <div className="tabular-numbers" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+            {((usage?.anomaly_rate ?? 0) * 100).toFixed(1)} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>%</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px' }}>
-            {usage?.anomaly_count ?? 0} anomalies détectées
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            {usage?.anomaly_count ?? 0} anomalies signalées
           </div>
         </div>
 
-        {/* Fiabilité & Succès */}
-        <div className="glass-card" style={{ padding: '16px' }}>
+        {/* Taux de Succès */}
+        <div className="card-standard" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-subtle)', fontWeight: 600 }}>Taux de Succès</span>
-            <CheckCircle2 size={18} color="#059669" />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fiabilité Inférence</span>
+            <CheckCircle2 size={18} color="var(--status-success)" />
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#059669', fontFamily: 'Outfit, sans-serif' }}>
+          <div className="tabular-numbers" style={{ fontSize: '26px', fontWeight: 800, color: 'var(--status-success)', fontFamily: 'IBM Plex Mono, monospace' }}>
             {((rel?.success_rate ?? 1.0) * 100).toFixed(1)} <span style={{ fontSize: '14px', fontWeight: 600 }}>%</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px' }}>
-            Erreurs consécutives : <strong>{rel?.consecutive_errors ?? 0}</strong>
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Erreurs consécutives : <strong className="tabular-numbers">{rel?.consecutive_errors ?? 0}</strong>
           </div>
         </div>
       </div>
 
-      {/* Performances des Modèles (Offline Training Quality Cards) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-        {/* XGBoost Forecaster Model Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <TrendingUp size={18} color="#059669" />
-            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Modèle XGBoost Forecaster (v2.0.0)</h4>
+      {/* Cartes Modèles */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+        {/* XGBoost */}
+        <div className="card-standard" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={18} color="var(--status-success)" />
+              <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>XGBoost Regressor (v2.0.0)</h4>
+            </div>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'IBM Plex Mono, monospace' }}>dataset: synthétique</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
-            <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--text-subtle)', fontSize: '10px' }}>Score R² (Précision)</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#059669' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-surface)' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Précision R²</div>
+              <div className="tabular-numbers" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--status-success)', fontFamily: 'IBM Plex Mono, monospace' }}>
                 {train?.forecasting?.r2_score ? (train.forecasting.r2_score * 100).toFixed(1) + '%' : '98.5%'}
               </div>
             </div>
-            <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--text-subtle)', fontSize: '10px' }}>Erreur MAE Moyenne</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--foreground)' }}>
+            <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-surface)' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Erreur MAE Moyenne</div>
+              <div className="tabular-numbers" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
                 {train?.forecasting?.mae ? train.forecasting.mae.toFixed(2) + ' kW' : '3.12 kW'}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Isolation Forest Anomaly Detector Card */}
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <ShieldAlert size={18} color="#ea580c" />
-            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Isolation Forest Anomaly (v2.0.0)</h4>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
-            <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--text-subtle)', fontSize: '10px' }}>Taux Contamination</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#ea580c' }}>5.0%</div>
+        {/* Isolation Forest */}
+        <div className="card-standard" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldAlert size={18} color="var(--accent-cost)" />
+              <h4 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Isolation Forest (v2.0.0)</h4>
             </div>
-            <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--surface-2)' }}>
-              <div style={{ color: 'var(--text-subtle)', fontSize: '10px' }}>Nombre d'Arbres</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--foreground)' }}>300 Estimators</div>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'IBM Plex Mono, monospace' }}>dataset: synthétique</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-surface)' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Contamination</div>
+              <div className="tabular-numbers" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-cost)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                5.0%
+              </div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-surface)' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Arbres d'Isolement</div>
+              <div className="tabular-numbers" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono, monospace' }}>
+                300
+              </div>
             </div>
           </div>
         </div>
