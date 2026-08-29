@@ -9,3 +9,12 @@ xgboost>=2.1.0
 scikit-learn>=1.4.0
 pandas>=2.2.0
 numpy>=1.26.0
+
+# Sous-système IA (app/ai/) et générateur de rapports (app/reports/) — Sprint 3
+Jinja2>=3.1.0
+PyYAML>=6.0
+reportlab>=4.0.0
+python-docx>=1.1.0
+python-pptx>=0.6.23
+openpyxl>=3.1.0
+matplotlib>=3.8.0

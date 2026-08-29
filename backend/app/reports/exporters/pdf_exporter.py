@@ -5,6 +5,7 @@ app/reports/exporters/pdf_exporter.py — Exportateur de rapports énergétiques
 import io
 import logging
 from typing import Dict, List, Optional
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -16,6 +17,14 @@ from app.reports.exporters.base import BaseReportExporter
 from app.reports.models import EnergyReportData
 
 logger = logging.getLogger("nouankany.reports")
+
+
+def _safe(value) -> str:
+    """Échappe une valeur avant insertion dans un Paragraph() ReportLab, qui
+    interprète un sous-ensemble de balises façon HTML dans le texte fourni —
+    un champ libre utilisateur (titre, résumé, nom de machine...) ne doit
+    jamais y être inséré brut."""
+    return _xml_escape(str(value))
 
 PRIMARY_COLOR = colors.HexColor("#0284C7")
 SECONDARY_COLOR = colors.HexColor("#0F172A")
@@ -95,7 +104,7 @@ class PDFReportExporter(BaseReportExporter):
             [
                 [
                     Paragraph("<b>NOUANKANY.AI</b> | Plateforme d'Efficacité Énergétique", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=11, textColor=PRIMARY_COLOR)),
-                    Paragraph(f"Réf : {report_data.report_id}", ParagraphStyle("Ref", fontName="Helvetica", fontSize=8, textColor=colors.gray, alignment=2)),
+                    Paragraph(f"Réf : {_safe(report_data.report_id)}", ParagraphStyle("Ref", fontName="Helvetica", fontSize=8, textColor=colors.gray, alignment=2)),
                 ]
             ],
             colWidths=[12 * cm, 6 * cm],
@@ -105,18 +114,18 @@ class PDFReportExporter(BaseReportExporter):
         elements.append(HRFlowable(width="100%", thickness=1, color=PRIMARY_COLOR, spaceBefore=4, spaceAfter=12))
 
         # 2. Titre du rapport et Métadonnées
-        elements.append(Paragraph(report_data.title, title_style))
+        elements.append(Paragraph(_safe(report_data.title), title_style))
         meta_text = (
-            f"<b>Site :</b> {report_data.site_name} ({report_data.building_type}) | "
-            f"<b>Période :</b> {report_data.period_start} au {report_data.period_end} | "
-            f"<b>Émis le :</b> {report_data.generated_at}"
+            f"<b>Site :</b> {_safe(report_data.site_name)} ({_safe(report_data.building_type)}) | "
+            f"<b>Période :</b> {_safe(report_data.period_start)} au {_safe(report_data.period_end)} | "
+            f"<b>Émis le :</b> {_safe(report_data.generated_at)}"
         )
         elements.append(Paragraph(meta_text, subtitle_style))
         elements.append(Spacer(1, 10))
 
         # 3. Résumé Exécutif
         elements.append(Paragraph("1. Résumé Exécutif & Faits Marquants", h2_style))
-        elements.append(Paragraph(report_data.executive_summary, body_style))
+        elements.append(Paragraph(_safe(report_data.executive_summary), body_style))
         elements.append(Spacer(1, 10))
 
         # 4. Tableau des Indicateurs Clés (KPIs)
@@ -200,12 +209,12 @@ class PDFReportExporter(BaseReportExporter):
             mach_rows = [mach_headers]
             for m in report_data.machines[:8]:
                 mach_rows.append([
-                    Paragraph(m.machine_name, body_style),
-                    Paragraph(m.category, body_style),
+                    Paragraph(_safe(m.machine_name), body_style),
+                    Paragraph(_safe(m.category), body_style),
                     Paragraph(f"{m.energy_kwh:,.1f}", body_style),
                     Paragraph(f"{m.cost_fcfa:,.0f}", body_style),
                     Paragraph(f"{m.running_hours:.1f}h", body_style),
-                    Paragraph(f"<b>{m.efficiency_grade}</b>", body_style),
+                    Paragraph(f"<b>{_safe(m.efficiency_grade)}</b>", body_style),
                 ])
             mach_table = Table(mach_rows, colWidths=[4.5 * cm, 3.5 * cm, 3.0 * cm, 3.2 * cm, 2.0 * cm, 1.8 * cm])
             mach_table.setStyle(
@@ -229,11 +238,11 @@ class PDFReportExporter(BaseReportExporter):
                 prio_label = "PRIORITÉ 1 (IMMÉDIAT)" if rec.priority == 1 else ("PRIORITÉ 2 (COURT TERME)" if rec.priority == 2 else "PRIORITÉ 3 (PRÉVENTIF)")
                 rec_card = [
                     [
-                        Paragraph(f"<b><font color='{prio_color}'>{prio_label}</font> : {rec.title}</b>", bold_body_style),
+                        Paragraph(f"<b><font color='{prio_color}'>{prio_label}</font> : {_safe(rec.title)}</b>", bold_body_style),
                         Paragraph(f"<b>Gains : +{rec.estimated_savings_fcfa:,.0f} FCFA ({rec.estimated_savings_kwh:,.0f} kWh)</b>", ParagraphStyle("Gain", parent=bold_body_style, textColor=ACCENT_COLOR, alignment=2)),
                     ],
                     [
-                        Paragraph(f"{rec.description} <i>(Cible : {rec.target_equipment})</i>", body_style),
+                        Paragraph(f"{_safe(rec.description)} <i>(Cible : {_safe(rec.target_equipment)})</i>", body_style),
                         Paragraph("", body_style),
                     ],
                 ]
