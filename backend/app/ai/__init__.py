@@ -2,7 +2,7 @@
 app/ai — Couche GenAI, Copilot Industriel et AI Gateway de NouanKanyAI.
 
 Expose l'ensemble des points d'accès unifiés pour l'interaction avec les LLMs (Google Gemini),
-le formatage de contexte industriel, la gestion de mémoire conversationnelle et les pipelines RAG.
+le formatage de contexte industriel, la gestion de mémoire conversationnelle multi-niveaux et les pipelines RAG.
 """
 
 from app.ai.assistant import IndustrialCopilot
@@ -20,7 +20,13 @@ from app.ai.exceptions import (
     ToolExecutionError,
 )
 from app.ai.gateway import AIGateway
-from app.ai.memory import BaseMemory, ConversationBufferMemory, SummaryMemory
+from app.ai.memory import (
+    BaseMemory,
+    ConversationBufferMemory,
+    ConversationMemoryManager,
+    ShortTermSessionMemory,
+    SummaryMemory,
+)
 from app.ai.prompt_builder import DEFAULT_SYSTEM_INSTRUCTION, PromptBuilder
 from app.ai.rag import BaseRAGPipeline, IndustrialRAGPipeline
 from app.ai.retriever import BaseRetriever, InMemoryRetriever
@@ -28,11 +34,15 @@ from app.ai.tools import BaseTool, CalculateEnergyCostTool, ToolRegistry
 from app.ai.types import (
     AIResponse,
     ChatMessage,
+    ConfirmedActionRecord,
     DocumentChunk,
     GenerationConfig,
+    LongTermEntityMemory,
     MessageRole,
+    RecommendationRecord,
     RetrievalResult,
     ToolDefinition,
+    UserPreferences,
 )
 
 __all__ = [
@@ -46,6 +56,16 @@ __all__ = [
     # Conversation & Sessions
     "ConversationManager",
     "ConversationSession",
+    # Memory Subsystem
+    "BaseMemory",
+    "ConversationBufferMemory",
+    "SummaryMemory",
+    "ShortTermSessionMemory",
+    "ConversationMemoryManager",
+    "UserPreferences",
+    "RecommendationRecord",
+    "ConfirmedActionRecord",
+    "LongTermEntityMemory",
     # Tools & Function Calling
     "BaseTool",
     "ToolRegistry",
@@ -56,10 +76,7 @@ __all__ = [
     "MockEmbedder",
     "BaseRetriever",
     "InMemoryRetriever",
-    # Memory & RAG
-    "BaseMemory",
-    "ConversationBufferMemory",
-    "SummaryMemory",
+    # RAG Pipeline
     "BaseRAGPipeline",
     "IndustrialRAGPipeline",
     # Types & Contrats

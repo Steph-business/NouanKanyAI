@@ -2,7 +2,7 @@
 app/ai/prompt_builder.py — Constructeur de prompts et gestion des instructions système pour NouanKanyAI.
 
 Gère les gabarits d'instructions système orientés efficacité énergétique industrielle,
-l'intégration des politiques tarifaires CIE, le formatage des exemples et l'assemblage de prompts modulaires.
+l'intégration des politiques tarifaires CIE, la mémoire multi-niveaux et l'assemblage de prompts modulaires.
 """
 
 from typing import Any, Dict, List, Optional
@@ -49,12 +49,14 @@ class PromptBuilder:
         self,
         additional_guidelines: Optional[List[str]] = None,
         custom_context: Optional[str] = None,
+        memory_context: Optional[str] = None,
     ) -> str:
         """
-        Assemble l'instruction système finale avec directives optionnelles.
+        Assemble l'instruction système finale avec directives et mémoire contextuelle.
 
         :param additional_guidelines: Règles métiers supplémentaires.
         :param custom_context: Contexte statique additionnel.
+        :param memory_context: Synthèse de la mémoire longue (préférences, équipements).
         :return: Instruction système complète prête pour le LLM.
         """
         instruction = self.system_instruction
@@ -64,6 +66,9 @@ class PromptBuilder:
 
         if custom_context:
             instruction += f"\n\nContexte d'entreprise :\n{custom_context}"
+
+        if memory_context:
+            instruction += f"\n\n{memory_context}"
 
         if additional_guidelines:
             instruction += "\n\nDirectives impératives :\n"
@@ -76,17 +81,22 @@ class PromptBuilder:
         self,
         query: str,
         industrial_context: Optional[str] = None,
+        memory_context: Optional[str] = None,
         rag_context: Optional[str] = None,
     ) -> str:
         """
-        Structure le message utilisateur en y adjoignant les contextes temps réel et RAG.
+        Structure le message utilisateur en y adjoignant les contextes temps réel, mémoire et RAG.
 
         :param query: Question ou requête brute de l'utilisateur.
         :param industrial_context: Données télémétriques et état des machines au format texte/markdown.
+        :param memory_context: Synthèse de mémoire longue ou résumés de sessions passées.
         :param rag_context: Extraits documentaires pertinents issus du moteur RAG.
         :return: Prompt utilisateur enrichi.
         """
         sections: List[str] = []
+
+        if memory_context:
+            sections.append(memory_context)
 
         if industrial_context:
             sections.append(f"### [CONTEXTE INDUSTRIEL TEMPS RÉEL]\n{industrial_context}")
@@ -103,6 +113,7 @@ class PromptBuilder:
         query: str,
         conversation_history: Optional[List[ChatMessage]] = None,
         industrial_context: Optional[str] = None,
+        memory_context: Optional[str] = None,
         rag_context: Optional[str] = None,
     ) -> List[ChatMessage]:
         """
@@ -111,6 +122,7 @@ class PromptBuilder:
         :param query: Requête courante de l'utilisateur.
         :param conversation_history: Historique des échanges précédents.
         :param industrial_context: Contexte machine / alertes.
+        :param memory_context: Contexte de mémoire.
         :param rag_context: Contexte documentaire.
         :return: Liste complète des `ChatMessage`.
         """
@@ -122,6 +134,7 @@ class PromptBuilder:
         formatted_content = self.format_user_prompt(
             query=query,
             industrial_context=industrial_context,
+            memory_context=memory_context,
             rag_context=rag_context,
         )
 

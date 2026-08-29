@@ -2,8 +2,8 @@
 app/ai/assistant.py — Assistant Copilot industriel et orchestrateur de haut niveau.
 
 Coordonne la passerelle LLM (AIGateway), le constructeur de contexte industriel
-(IndustrialContextBuilder), les gabarits de prompts (PromptBuilder), la gestion des sessions
-(ConversationManager), le registre d'outils (ToolRegistry) et les modules RAG/Mémoire.
+(IndustrialContextBuilder), les gabarits de prompts (PromptBuilder), la mémoire multi-niveaux
+(ConversationMemoryManager), le registre d'outils (ToolRegistry) et les modules RAG.
 """
 
 import logging
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from app.ai.context import IndustrialContextBuilder
 from app.ai.conversation import ConversationManager
 from app.ai.gateway import AIGateway
-from app.ai.memory import BaseMemory, ConversationBufferMemory
+from app.ai.memory import ConversationMemoryManager
 from app.ai.prompt_builder import PromptBuilder
 from app.ai.rag import BaseRAGPipeline
 from app.ai.tools import ToolRegistry
@@ -34,7 +34,7 @@ class IndustrialCopilot:
         context_builder: Optional[IndustrialContextBuilder] = None,
         conversation_manager: Optional[ConversationManager] = None,
         tool_registry: Optional[ToolRegistry] = None,
-        memory: Optional[BaseMemory] = None,
+        memory_manager: Optional[ConversationMemoryManager] = None,
         rag_pipeline: Optional[BaseRAGPipeline] = None,
     ) -> None:
         """
@@ -45,7 +45,7 @@ class IndustrialCopilot:
         :param context_builder: Formateur de télémétrie industrielle temps réel.
         :param conversation_manager: Gestionnaire d'historique de sessions.
         :param tool_registry: Registre des outils métier (Function Calling).
-        :param memory: Gestionnaire de mémoire à court/long terme.
+        :param memory_manager: Gestionnaire de mémoire multi-niveaux (court/long terme).
         :param rag_pipeline: Pipeline de recherche documentaire RAG.
         """
         self.gateway = gateway or AIGateway()
@@ -53,7 +53,7 @@ class IndustrialCopilot:
         self.context_builder = context_builder or IndustrialContextBuilder()
         self.conversation_manager = conversation_manager or ConversationManager()
         self.tool_registry = tool_registry or ToolRegistry()
-        self.memory = memory or ConversationBufferMemory()
+        self.memory_manager = memory_manager or ConversationMemoryManager()
         self.rag_pipeline = rag_pipeline
 
         logger.info("[IndustrialCopilot] Copilot opérationnel et prêt.")
@@ -62,6 +62,9 @@ class IndustrialCopilot:
         self,
         query: str,
         session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
+        building_id: Optional[str] = None,
         machines: Optional[List[Dict[str, Any]]] = None,
         alerts: Optional[List[Dict[str, Any]]] = None,
         current_hour: Optional[int] = None,
@@ -70,10 +73,13 @@ class IndustrialCopilot:
         config: Optional[GenerationConfig] = None,
     ) -> AIResponse:
         """
-        Traite une requête utilisateur dans son contexte industriel et conversationnel.
+        Traite une requête utilisateur dans son contexte industriel, mémoriel et conversationnel.
 
         :param query: Question ou commande de l'opérateur / directeur d'usine.
         :param session_id: Identifiant de la session de chat.
+        :param user_id: Identifiant de l'utilisateur.
+        :param org_id: Identifiant de l'organisation.
+        :param building_id: Identifiant du bâtiment / site industriel.
         :param machines: Données télémétriques des machines actuelles.
         :param alerts: Données des alertes et anomalies actives.
         :param current_hour: Heure d'analyse (CIE).
@@ -82,7 +88,7 @@ class IndustrialCopilot:
         :param config: Hyperparamètres de génération.
         :return: Réponse structurée `AIResponse`.
         """
-        active_session = self.conversation_manager.get_or_create_session(session_id)
+        active_session = self.conversation_manager.get_or_create_session(session_id, user_id=user_id)
         sid = active_session.session_id
 
         # 1. Construction du contexte industriel temps réel
@@ -92,30 +98,39 @@ class IndustrialCopilot:
             current_hour=current_hour,
         )
 
-        # 2. Recherche documentaire RAG optionnelle
+        # 2. Récupération de la mémoire pertinente (préférences, équipements, synthèses)
+        memory_ctx = self.memory_manager.get_relevant_context_for_prompt(
+            session_id=sid,
+            user_id=user_id,
+            org_id=org_id,
+            building_id=building_id,
+            query=query,
+        )
+
+        # 3. Recherche documentaire RAG optionnelle
         rag_context: Optional[str] = None
         if use_rag and self.rag_pipeline is not None:
             try:
-                # Utilisation du pipeline RAG si disponible
                 logger.debug(f"[IndustrialCopilot] Recherche RAG activée pour la requête : {query}")
             except Exception as e:
                 logger.warning(f"[IndustrialCopilot] Échec partiel du RAG : {e}")
 
-        # 3. Récupération de l'historique conversationnel
+        # 4. Récupération de l'historique conversationnel court terme
         history = self.conversation_manager.get_history(sid, limit=10)
 
-        # 4. Assemblage de la liste de messages
+        # 5. Assemblage de la liste de messages enrichis
         messages = self.prompt_builder.create_chat_messages(
             query=query,
             conversation_history=history,
             industrial_context=industrial_ctx,
+            memory_context=memory_ctx if memory_ctx else None,
             rag_context=rag_context,
         )
 
-        # 5. Préparation des outils (Function Calling)
+        # 6. Préparation des outils (Function Calling)
         tools_schema = self.tool_registry.get_gemini_schemas() if use_tools else None
 
-        # 6. Génération via l'AI Gateway
+        # 7. Génération via l'AI Gateway
         system_instruction = self.prompt_builder.build_system_instruction()
         response = self.gateway.chat(
             messages=messages,
@@ -124,9 +139,16 @@ class IndustrialCopilot:
             config=config,
         )
 
-        # 7. Persistance du tour dans la conversation et la mémoire
+        # 8. Persistance du tour dans la conversation et la mémoire multi-niveaux
         self.conversation_manager.add_message(sid, MessageRole.USER, query)
         self.conversation_manager.add_message(sid, MessageRole.ASSISTANT, response.content)
-        self.memory.save_context(query, response.content)
+        self.memory_manager.add_turn(
+            session_id=sid,
+            user_message=query,
+            assistant_response=response.content,
+            org_id=org_id,
+            building_id=building_id,
+            user_id=user_id,
+        )
 
         return response
