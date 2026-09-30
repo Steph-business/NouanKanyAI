@@ -127,8 +127,15 @@ class IndustrialCopilot:
             rag_context=rag_context,
         )
 
-        # 6. Préparation des outils (Function Calling)
-        tools_schema = self.tool_registry.get_gemini_schemas() if use_tools else None
+        # 6. Préparation des outils (Function Calling) — format selon le provider
+        # actif de la passerelle (voir app/ai/gateway.py, AIGateway.provider).
+        tools_schema = None
+        if use_tools:
+            tools_schema = (
+                self.tool_registry.get_openai_schemas()
+                if self.gateway.provider == "groq"
+                else self.tool_registry.get_gemini_schemas()
+            )
 
         # 7. Génération via l'AI Gateway
         system_instruction = self.prompt_builder.build_system_instruction()

@@ -1,9 +1,21 @@
 """
-app/ai/gateway.py — Passerelle centrale et point d'accès unifié aux modèles LLM (Google Gemini).
+app/ai/gateway.py — Passerelle centrale et point d'accès unifié aux modèles LLM
+(Google Gemini ou Groq).
 
-Centralise tous les appels vers l'API Gemini, gère les clés d'accès, la configuration
-des hyperparamètres de génération, les fallbacks intelligents pour le développement local,
-et standardise les objets de réponse avec métriques de latence.
+Centralise tous les appels vers le provider actif (variable d'environnement
+AI_PROVIDER="gemini"|"groq", défaut "gemini"), gère les clés d'accès, la
+configuration des hyperparamètres de génération, les fallbacks intelligents
+pour le développement local, et standardise les objets de réponse avec
+métriques de latence — même contrat public (chat/generate_text -> AIResponse)
+quel que soit le provider actif.
+
+Groq (https://console.groq.com) : API compatible OpenAI, modèle par défaut
+`openai/gpt-oss-20b` — le plus rapide et le seul avec un vrai palier gratuit
+sans carte bancaire au moment de l'écriture (30 req/min, 1000 req/jour,
+200k tokens/jour ; les modèles Llama sont passés Enterprise-only depuis
+août 2026, voir https://console.groq.com/docs/rate-limits). Alternative
+utile à Gemini quand aucune dépendance à une machine locale n'est
+souhaitable (voir discussion ngrok/Ollama — pas retenue pour cette raison).
 """
 
 import json
@@ -22,17 +34,22 @@ logger = logging.getLogger("nouankany.ai")
 
 class AIGateway:
     """
-    Passerelle unifiée d'accès aux modèles d'IA générative (Google Gemini).
+    Passerelle unifiée d'accès aux modèles d'IA générative (Google Gemini ou Groq).
     Encapsule la logique d'appel HTTP REST, la gestion d'erreurs et le mode simulation.
     """
 
-    DEFAULT_MODEL = "gemini-1.5-flash"
-    API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    DEFAULT_MODELS = {
+        "gemini": "gemini-1.5-flash",
+        "groq": "openai/gpt-oss-20b",
+    }
+    GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
     def __init__(
         self,
         api_key: Optional[str] = None,
-        default_model: str = DEFAULT_MODEL,
+        default_model: Optional[str] = None,
+        provider: Optional[str] = None,
         timeout_seconds: float = 30.0,
         simulation_mode: Optional[bool] = None,
         fallback_to_simulation: bool = True,
@@ -40,15 +57,23 @@ class AIGateway:
         """
         Initialise la passerelle AI.
 
-        :param api_key: Clé API Google Gemini (ou lue depuis GEMINI_API_KEY).
-        :param default_model: Modèle par défaut (ex: gemini-1.5-flash, gemini-1.5-pro).
+        :param api_key: Clé API du provider actif (ou lue depuis GEMINI_API_KEY/GROQ_API_KEY).
+        :param default_model: Modèle par défaut. Si non fourni, dépend du provider
+            (voir DEFAULT_MODELS) — gemini-1.5-flash ou openai/gpt-oss-20b (Groq, gratuit).
+        :param provider: "gemini" ou "groq" (ou lu depuis AI_PROVIDER, défaut "gemini").
         :param timeout_seconds: Délai d'expiration des requêtes HTTP en secondes.
         :param simulation_mode: Force le mode simulation sans appel externe si True.
         :param fallback_to_simulation: Bascule automatiquement en simulation si l'API externe échoue.
         """
-        raw_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")
+        self.provider = (provider or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
+        if self.provider not in ("gemini", "groq"):
+            logger.warning(f"[AIGateway] Provider inconnu '{self.provider}', repli sur 'gemini'.")
+            self.provider = "gemini"
+
+        key_env_var = "GEMINI_API_KEY" if self.provider == "gemini" else "GROQ_API_KEY"
+        raw_key = api_key if api_key is not None else os.getenv(key_env_var, "")
         self.api_key = raw_key.strip()
-        self.default_model = default_model
+        self.default_model = default_model or self.DEFAULT_MODELS[self.provider]
         self.timeout_seconds = timeout_seconds
         self.fallback_to_simulation = fallback_to_simulation
 
@@ -64,11 +89,11 @@ class AIGateway:
 
         if self.is_simulation_mode:
             logger.warning(
-                "[AIGateway] Mode simulation actif (réponses synthétiques locales)."
+                f"[AIGateway] Mode simulation actif (provider={self.provider}, réponses synthétiques locales)."
             )
         else:
             logger.info(
-                f"[AIGateway] Initialisé avec succès (modèle par défaut: {self.default_model})."
+                f"[AIGateway] Initialisé avec succès (provider={self.provider}, modèle par défaut: {self.default_model})."
             )
 
     def generate_text(
@@ -118,7 +143,7 @@ class AIGateway:
         start_time = time.perf_counter()
 
         logger.debug(
-            f"[AIGateway] Envoi requête chat (modèle={active_model}, "
+            f"[AIGateway] Envoi requête chat (provider={self.provider}, modèle={active_model}, "
             f"messages={len(messages)}, simulation={self.is_simulation_mode})"
         )
 
@@ -130,28 +155,50 @@ class AIGateway:
                 start_time=start_time,
             )
 
-        # Construction du payload Gemini API
-        payload = self._build_gemini_payload(
-            messages=messages,
-            system_instruction=system_instruction,
-            tools=tools,
-            config=gen_config,
-        )
+        if self.provider == "groq":
+            endpoint_url = self.GROQ_API_URL
+            payload = self._build_groq_payload(
+                messages=messages,
+                system_instruction=system_instruction,
+                tools=tools,
+                config=gen_config,
+                model=active_model,
+            )
+            # Groq est compatible OpenAI : Authorization: Bearer <clé>, jamais en
+            # query string — même principe que x-goog-api-key côté Gemini.
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+                # Sans User-Agent explicite, urllib envoie "Python-urllib/x.y",
+                # que le pare-feu Cloudflare devant api.groq.com bloque en 403
+                # (error code 1010, "signature de navigateur" suspecte) — vu en
+                # test réel, curl passe sans ce souci avec son propre UA.
+                "User-Agent": "NouanKanyAI-Backend/1.0",
+            }
+        else:
+            endpoint_url = f"{self.GEMINI_API_BASE_URL}/{active_model}:generateContent"
+            payload = self._build_gemini_payload(
+                messages=messages,
+                system_instruction=system_instruction,
+                tools=tools,
+                config=gen_config,
+            )
+            # La clé API part en en-tête (x-goog-api-key), jamais dans l'URL : une
+            # clé en query string finit tôt ou tard dans un log d'accès, un message
+            # d'exception ou un outil de tracing qui capture l'URL de la requête.
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            }
 
-        # La clé API part en en-tête (x-goog-api-key), jamais dans l'URL : une clé
-        # en query string finit tôt ou tard dans un log d'accès, un message
-        # d'exception ou un outil de tracing qui capture l'URL de la requête.
-        endpoint_url = f"{self.API_BASE_URL}/{active_model}:generateContent"
+        provider_label = "Groq" if self.provider == "groq" else "Gemini"
 
         try:
             req_data = json.dumps(payload).encode("utf-8")
             request = urllib.request.Request(
                 endpoint_url,
                 data=req_data,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": self.api_key,
-                },
+                headers=headers,
                 method="POST",
             )
 
@@ -159,6 +206,8 @@ class AIGateway:
                 resp_data = json.loads(resp.read().decode("utf-8"))
 
             latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
+            if self.provider == "groq":
+                return self._parse_groq_response(resp_data, active_model, latency_ms)
             return self._parse_gemini_response(resp_data, active_model, latency_ms)
 
         except urllib.error.HTTPError as http_err:
@@ -166,7 +215,7 @@ class AIGateway:
             status_code = http_err.code
             err_body = http_err.read().decode("utf-8", errors="replace")
             logger.error(
-                f"[AIGateway] Erreur HTTP {status_code} de l'API Gemini : {err_body}"
+                f"[AIGateway] Erreur HTTP {status_code} de l'API {provider_label} : {err_body}"
             )
 
             if self.fallback_to_simulation:
@@ -182,23 +231,23 @@ class AIGateway:
 
             if status_code in (401, 403):
                 raise AuthenticationError(
-                    f"Clé API Gemini non autorisée ou expirée (HTTP {status_code}).",
+                    f"Clé API {provider_label} non autorisée ou expirée (HTTP {status_code}).",
                     details={"body": err_body},
                 ) from http_err
             elif status_code == 429:
                 raise RateLimitExceededError(
-                    "Quota d'appels Gemini dépassé (HTTP 429).",
+                    f"Quota d'appels {provider_label} dépassé (HTTP 429).",
                     details={"body": err_body},
                 ) from http_err
             else:
                 raise AIGatewayError(
-                    f"Erreur de communication avec Gemini (HTTP {status_code}) : {http_err.reason}",
+                    f"Erreur de communication avec {provider_label} (HTTP {status_code}) : {http_err.reason}",
                     details={"body": err_body, "status_code": status_code},
                 ) from http_err
 
         except Exception as e:
             latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
-            logger.error(f"[AIGateway] Exception lors de l'appel Gemini : {e}")
+            logger.error(f"[AIGateway] Exception lors de l'appel {provider_label} : {e}")
             if self.fallback_to_simulation:
                 logger.warning(
                     f"[AIGateway] Repli automatique sur le mode simulation suite à l'exception : {e}"
@@ -284,6 +333,79 @@ class AIGateway:
             latency_ms=latency_ms,
             finish_reason=finish_reason,
             usage_tokens=usage_tokens,
+            raw_response=resp_data,
+        )
+
+    def _build_groq_payload(
+        self,
+        messages: List[ChatMessage],
+        system_instruction: Optional[str],
+        tools: Optional[List[Dict[str, Any]]],
+        config: GenerationConfig,
+        model: str,
+    ) -> Dict[str, Any]:
+        """Construit le payload JSON conforme à l'API Groq (compatible OpenAI Chat Completions)."""
+        chat_messages: List[Dict[str, str]] = []
+        if system_instruction:
+            chat_messages.append({"role": "system", "content": system_instruction})
+        for msg in messages:
+            role_str = "assistant" if msg.role == MessageRole.ASSISTANT else "user"
+            chat_messages.append({"role": role_str, "content": msg.content})
+
+        payload: Dict[str, Any] = {
+            "model": model,
+            "messages": chat_messages,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "max_tokens": config.max_output_tokens,
+        }
+
+        if config.stop_sequences:
+            payload["stop"] = config.stop_sequences
+
+        if tools:
+            # `tools` est déjà au format OpenAI ici (ToolRegistry.get_openai_schemas(),
+            # voir app/ai/assistant.py qui choisit le format selon le provider actif) :
+            # {"name","description","parameters"} -> {"type":"function","function":{...}}.
+            payload["tools"] = [
+                {"type": "function", "function": t} if "type" not in t else t
+                for t in tools
+            ]
+
+        return payload
+
+    def _parse_groq_response(
+        self, resp_data: Dict[str, Any], model_name: str, latency_ms: float
+    ) -> AIResponse:
+        """Parse et normalise la réponse brute de l'API Groq (format OpenAI Chat Completions)."""
+        choices = resp_data.get("choices", [])
+        if not choices:
+            raise AIGatewayError(
+                "L'API Groq n'a renvoyé aucun choix dans sa réponse.",
+                details={"response": resp_data},
+            )
+
+        choice = choices[0]
+        message = choice.get("message", {})
+        content_text = (message.get("content") or "").strip()
+        finish_reason = (choice.get("finish_reason") or "stop").upper()
+
+        tool_calls = message.get("tool_calls")
+
+        usage = resp_data.get("usage", {})
+        usage_tokens = {
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens": usage.get("total_tokens", 0),
+        }
+
+        return AIResponse(
+            content=content_text,
+            model_name=resp_data.get("model", model_name),
+            latency_ms=latency_ms,
+            finish_reason=finish_reason,
+            usage_tokens=usage_tokens,
+            tool_calls=tool_calls,
             raw_response=resp_data,
         )
 
