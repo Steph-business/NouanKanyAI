@@ -47,7 +47,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from app.services.demo_data import load_demo_machine_state
-from app.interface.routers import machines, predictions, billing, recommendations, chat, admin
+from app.interface.routers import machines, predictions, billing, recommendations, chat, admin, assistant, reports
 from app.api.v1.ml.router import router as ml_router
 from app.api.handlers import register_ml_exception_handlers
 from app.api.deps import set_model_manager, get_model_manager
@@ -143,6 +143,11 @@ app.include_router(billing.router, prefix="/api/v1", tags=["billing"])
 app.include_router(recommendations.router, prefix="/api/v1", tags=["recommendations"])
 app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
+
+# Premier câblage réel de app/ai/ (Copilot IA) et app/reports/ (génération de
+# rapports) sur une route HTTP — voir docstrings de assistant.py/reports.py.
+app.include_router(assistant.router, prefix="/api/v1", tags=["assistant"])
+app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
 
 def _load_demo_machine_state() -> List[dict]:
     """
