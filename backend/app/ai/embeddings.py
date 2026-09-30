@@ -9,8 +9,9 @@ from abc import ABC, abstractmethod
 import hashlib
 import logging
 import math
-import os
 from typing import List, Optional
+
+from app.config.settings import settings
 
 logger = logging.getLogger("nouankany.ai")
 
@@ -66,7 +67,7 @@ class GeminiEmbedder(BaseEmbedder):
         model_name: str = DEFAULT_MODEL,
         dimension: int = DEFAULT_DIMENSION,
     ) -> None:
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY", "").strip()
+        self.api_key = api_key if api_key is not None else settings.GEMINI_API_KEY
         self.model_name = model_name
         self._dimension = dimension
         logger.debug(f"[GeminiEmbedder] Initialisé (model={model_name}, dim={dimension})")

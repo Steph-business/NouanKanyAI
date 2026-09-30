@@ -8,7 +8,6 @@ et standardise les objets de réponse avec métriques de latence.
 
 import json
 import logging
-import os
 import time
 from typing import Any, Dict, List, Optional
 import urllib.request
@@ -16,6 +15,7 @@ import urllib.error
 
 from app.ai.exceptions import AIGatewayError, AuthenticationError, RateLimitExceededError
 from app.ai.types import AIResponse, ChatMessage, GenerationConfig, MessageRole
+from app.config.settings import settings
 
 logger = logging.getLogger("nouankany.ai")
 
@@ -46,7 +46,7 @@ class AIGateway:
         :param simulation_mode: Force le mode simulation sans appel externe si True.
         :param fallback_to_simulation: Bascule automatiquement en simulation si l'API externe échoue.
         """
-        raw_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")
+        raw_key = api_key if api_key is not None else settings.GEMINI_API_KEY
         self.api_key = raw_key.strip()
         self.default_model = default_model
         self.timeout_seconds = timeout_seconds

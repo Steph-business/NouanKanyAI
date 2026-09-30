@@ -1,28 +1,5 @@
-"""
-app/interface/routers/recommendations.py — Routeur FastAPI pour les recommandations d'efficacité énergétique.
+"""Compatibilité d'import vers le routeur de recommandations de Presentation."""
 
-Expose la liste des actions générées pour optimiser les plannings et éviter les surconsommations.
-"""
+from app.presentation.api.v1.routes.recommendations import get_recommendations, router
 
-from typing import Any, Dict
-from fastapi import APIRouter
-
-router = APIRouter()
-
-
-@router.get(
-    "/recommendations",
-    summary="Liste des recommandations d'optimisation",
-    description="Retourne les conseils et actions correctives prioritaires pour les équipements.",
-)
-def get_recommendations() -> Dict[str, Any]:
-    """
-    Fournit la liste des actions d'efficacité énergétique recommandées.
-    """
-    return {
-        "recommendations": [
-            "Vérifier la pression de la pompe hydraulique",
-            "Optimiser la programmation de la climatisation",
-        ],
-        "count": 2,
-    }
+__all__ = ["get_recommendations", "router"]

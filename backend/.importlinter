@@ -1,0 +1,18 @@
+[importlinter]
+root_package = app
+include_external = False
+
+[importlinter:contract:layers]
+name = Clean Architecture dependency direction
+type = layers
+layers =
+    app.presentation
+    app.infrastructure
+    app.application
+    app.domain
+ignore_imports =
+    app.presentation.legacy_app -> app.api.*
+    app.presentation.legacy_app -> app.ml.*
+    app.presentation.legacy_app -> app.services.*
+    app.presentation.api.dependencies -> app.ml.manager
+    app.presentation.api.v1.routes.ml -> app.ml.*
